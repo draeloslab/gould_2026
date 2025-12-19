@@ -1,0 +1,44 @@
+[tool.yapf]
+based_on_style='facebook'
+ARITHMETIC_PRECEDENCE_INDICATION=true
+SPLIT_BEFORE_NAMED_ASSIGNS=true
+SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET=false
+COALESCE_BRACKETS=true
+COLUMN_LIMIT=300
+
+[tool.yapfignore]
+ignore_patterns=[
+    "workspace/datasets/*"
+]
+
+[tool.isort]
+line_length = 300
+skip_glob = ['workspace/datasets/*', '*/.*']
+
+[tool.coverage.report]
+exclude_also = [
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if False:",
+    "if .TYPE_CHECKING.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.run]
+source = [
+    "gould_2026",
+    "figure_code",
+]
+omit = [
+    "data",
+    "*/.*/*"
+]
+data_file = "output/.coverage"
+
+[tool.coverage.html]
+directory = "output/reports/coverage-html"
+
+[tool.coverage.xml]
+output = "output/reports/coverage.xml"

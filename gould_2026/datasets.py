@@ -1,4 +1,6 @@
 import warnings
+from PIL import Image
+import pims
 from pynwb import NWBHDF5IO
 import h5py
 import fsspec
@@ -6,6 +8,7 @@ from dandi.dandiapi import DandiAPIClient
 from fsspec.implementations.cached import CachingFileSystem
 from contextlib import contextmanager
 from abc import ABC, abstractmethod
+import pandas as pd
 
 import numpy as np
 from scipy.stats import special_ortho_group
@@ -16,7 +19,7 @@ from .prediction.kalman_filter import KalmanFilter
 
 import pathlib
 
-DATA_BASE_PATH = pathlib.Path(__file__).parent.absolute() / "data"
+DATA_BASE_PATH = pathlib.Path(__file__).parent.parent.absolute() / "data"
 
 
 class LDS:
@@ -355,3 +358,130 @@ class Odoherty21Dataset(DandiDataset):
         ax.legend()
         ax.set_xlabel('variance')
         ax.set_ylabel('count')
+
+class Zong22Dataset:
+    doi = "https://dx.doi.org/10.11582/2022.00008"
+    automatically_downloadable = False
+    dataset_base_path = DATA_BASE_PATH / 'zong22'
+
+    def make_cookie_entry(area, animal_id, date, f_part, f_total, cookie_status, filtered):
+        assert type(area) == str  # this can become static after 3.10
+        cookie_status = 'with' if cookie_status else 'no'
+        filtered = 'filtered' if filtered else ''
+        return {
+            'basepath':       f'{area}_recordings/{animal_id}/{date}/',
+            'raw_frames':     f'{animal_id}_imaging_{date}_{cookie_status}cookies_00001.tif',
+            'behavior_csv':   f'{animal_id}_imaging_{date}_{cookie_status}cookies_00001_trackingVideoDLC_resnet50_OPENMINI2P_bottomcameraAug26shuffle1_1030000{filtered}.csv',
+            'behavior_video': f'{animal_id}_imaging_{date}_{cookie_status}cookies_00001_trackingVideo.avi',
+            'part_of_F': (f_part,f_total)
+        }
+
+    def make_object_entry(area, animal_id, date, f_part, f_total, object_n, filtered):
+        assert type(area) == str  # this can become static after 3.10
+        object_str = f'object{object_n}' if object_n is not None else 'noobject'
+        filtered = 'filtered' if filtered else ''
+        return {
+            'basepath':       f'{area}_recordings/{animal_id}/{date}/',
+            'raw_frames':     f'{animal_id}_imaging_{date}_{object_str}_00001.tif',
+            'behavior_csv':   f'{animal_id}_imaging_{date}_{object_str}_00001_trackingVideoDLC_resnet50_OPENMINI2P_bottomcameraAug26shuffle1_1030000{filtered}.csv',
+            # 'behavior_video': f'{animal_id}_imaging_{date}_{object_str}_00001_trackingVideo.avi',
+            'part_of_F': (f_part,f_total)
+        }
+
+    sub_datset_info = pd.DataFrame([
+        make_cookie_entry('VC', '93562', '20200817', 1, 2, False, True),
+        make_cookie_entry('VC', '93562', '20200817', 2, 2, True, True),
+
+        make_cookie_entry('MEC', '94557', '20200822', 1, 2, False, False),
+        make_cookie_entry('MEC', '94557', '20200822', 1, 2, True, False),
+
+        make_object_entry('MEC', '94557', '20201008', 1, 3, None, True),
+        make_object_entry('MEC', '94557', '20201008', 2, 3, 1, True),
+        make_object_entry('MEC', '94557', '20201008', 3, 3, 2, True),
+    ])
+
+    sub_datasets = list(sub_datset_info.index)
+
+    def __init__(self, sub_dataset_identifier=sub_datasets[0], neural_lag=0, neural_scale=1, pos_scale=1, hd_scale=1, h2b_scale=1):
+        if isinstance(sub_dataset_identifier, int):
+            sub_dataset_identifier = self.sub_datasets[sub_dataset_identifier]
+
+        self.sub_dataset = sub_dataset_identifier
+        self.neural_Fs = 15
+        self.neural_lag = neural_lag
+        self.neural_scale = neural_scale
+        self.bin_width = 1/self.neural_Fs  # todo: make this universal?
+        self.F, self.raw_images, self.behavior_video, self.behavior_df, self.n_cells, self.stat, self.ops = self.acquire()
+
+
+        self.neural_data = ArrayWithTime(self.F.T * self.neural_scale, (np.arange(self.F.shape[1]) * 1 / self.neural_Fs) + self.neural_lag)
+        self.behavioral_data = ArrayWithTime(self.behavior_df.loc[:, ['x', 'y', 'hd', 'h2b']] * np.array([pos_scale, pos_scale, hd_scale, h2b_scale]), self.behavior_df.loc[:, 't'])
+
+        self.video_t = np.squeeze(self.behavioral_data.t)
+
+    def acquire(self):
+        sub_dataset_base_path = self.dataset_base_path / self.sub_datset_info.basepath[self.sub_dataset]
+        if not sub_dataset_base_path.is_dir():
+            print(f"Go download the dataset from {self.doi}. (Or remount the external drive on Tycho)")
+            raise FileNotFoundError()
+
+        iscell = np.load(sub_dataset_base_path / 'suite2p' / 'plane0' / 'iscell.npy')
+        F_all = np.load(sub_dataset_base_path / 'suite2p' / 'plane0' / 'F.npy')
+        self.F_all = F_all
+        n_cells = int(sum(iscell[:, 0]))
+
+        stat = np.load(sub_dataset_base_path / 'suite2p' / 'plane0' / 'stat.npy', allow_pickle=True)
+        ops = np.load(sub_dataset_base_path / 'suite2p' / 'plane0' / 'ops.npy', allow_pickle=True).item()
+
+        def make_beh(fpath):
+            pre_beh = pd.read_csv(fpath)
+            columns = ["t"] + list(map(lambda a: f"{a[0]}_{a[1]}", zip(pre_beh.iloc[0, 1:], pre_beh.iloc[1, 1:])))
+            columns = {pre_beh.columns[i]: columns[i] for i in range(len(columns))}
+            beh = pre_beh.rename(columns=columns).iloc[2:].astype(float).reset_index(drop=True)
+            beh.t = beh.t / self.neural_Fs
+            return beh
+
+        part, total = self.sub_datset_info.part_of_F[self.sub_dataset]
+        block_length = F_all.shape[1] // total
+
+        F_all = F_all - F_all.min(axis=1, keepdims=True)
+        # F_all = F_all / np.median(F_all, axis=1, keepdims=True)
+
+        F_all_0 = np.median(F_all, axis=1, keepdims=True)
+        F_all = (F_all - F_all_0) / F_all_0
+
+        F_all[np.isnan(F_all)] = 0
+
+        F = F_all[:, (part - 1) * block_length: part * block_length]
+        img = Image.open(sub_dataset_base_path / self.sub_datset_info.raw_frames[self.sub_dataset])
+        video = None
+        if isinstance(video_filename:=self.sub_datset_info.behavior_video[self.sub_dataset], str):
+            video = pims.Video(sub_dataset_base_path / video_filename)
+        beh = make_beh(sub_dataset_base_path / self.sub_datset_info.behavior_csv[self.sub_dataset])
+
+        nose = self.get_behavior_trace(beh, 'nose')
+        body = self.get_behavior_trace(beh, 'bodycenter')
+        head = self.get_behavior_trace(beh, 'mouse')
+
+        beh['hd'] = np.arctan2(*(nose - head).T)
+        beh['h2b'] = np.linalg.norm(head - body, axis=1)
+        beh['x'] = head[:,0]
+        beh['y'] = head[:,1]
+
+
+        return F, img, video, beh, n_cells, stat, ops
+
+    def show_stim_pattern(self, ax, desired_stim):
+        ax.matshow(self.ops['meanImg'], cmap='Grays')
+        xs, ys = list(zip(*[cell['med'] for cell in self.stat]))
+        map = ax.scatter(ys, xs, s=7, c=desired_stim)
+
+        ax.get_figure().colorbar(map)
+
+    @staticmethod
+    def get_behavior_trace(beh, point_str, threshold=.999):
+        point_trace = np.array([beh.loc[:, point_str + '_x'].to_numpy(),
+                                beh.loc[:, point_str + '_y'].to_numpy()]).T
+        s = beh.loc[:, point_str + '_likelihood'].to_numpy() < threshold
+        point_trace[s] *= np.nan
+        return point_trace
