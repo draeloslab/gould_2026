@@ -820,7 +820,7 @@ class Predictor(StreamingEstimator):
 
 
     def expected_data_streams(self, rng, DIM, cycles=1):
-        dt = 1  # TODO: do this better
+        dt = 1
         start_t = self._last_X_t or -1
         for i in range(1, cycles+1):
             yield ArrayWithTime(rng.normal(size=(1, DIM)), t=i*dt + start_t), 'X'
@@ -964,91 +964,3 @@ class KernelSmoother(StreamingEstimator):
 
     def get_params(self, deep=True):
         return dict(tau=self.tau, kernel_length=self.kernel_length, custom_kernel=self.custom_kernel) | super().get_params()
-
-    def plot_impulse_response(self, ax):
-        """
-        Parameters
-        ----------
-        ax: matplotlib.pyplot.Axes
-            The axis to plot on.
-
-        Examples
-        --------
-        >>> import matplotlib.pyplot as plt
-        >>> fig, ax = plt.subplots()
-        >>> KernelSmoother().plot_impulse_response(ax)
-        """
-
-        impulse_point = len(self.kernel) + 3
-        a = np.zeros((2*impulse_point + 1,1,1))
-        a[impulse_point] = 1
-        b = np.array(self.offline_run_on(a, convinient_return=False)[0])
-        ax.plot(a[:,0,0], '.-', label='original signal')
-        ax.plot(b[:,0,0], '.-', label='smoothed signal')
-        ax.axvline(len(self.kernel), color='k', linestyle='--', label='end of initialization')
-        # ax.axvline(impulse_point + len(self.kernel), color='k', alpha=.25)
-        # ax.axvline(impulse_point, color='k', alpha=.25, label='region of impulse response')
-        ax.fill_between([impulse_point, impulse_point + len(self.kernel)-1], 1,  color='k', alpha=.1, label='impulse response')
-        ax.legend()
-
-
-
-class Concatenator(StreamingEstimator):
-
-    def __init__(self, *, input_streams=None, output_streams=None, log_level=None, stream_scaling_factors=None):
-        input_streams = input_streams or PassThroughDict({0:0, 1:1})
-
-        output_stream = max(input_streams.keys()) + 1
-        output_streams = output_streams or PassThroughDict({k: output_stream for k in input_streams.keys()} | {'skip': -1})
-        super().__init__(input_streams=input_streams, output_streams=output_streams, log_level=log_level)
-        self.last_seen = {}
-
-        if stream_scaling_factors is None:
-            stream_scaling_factors = {i:1 for i in self.input_streams}
-
-        self.stream_scaling_factors = stream_scaling_factors
-
-    def _step(self, data, stream, return_output_stream):
-        if stream in self.input_streams:
-            self.last_seen[self.input_streams[stream]] = data
-
-            if len(self.last_seen) == len(self.input_streams):
-                data = [(k, v) for k, v in self.last_seen.items()]
-                data.sort()
-                data = [(k, v * self.stream_scaling_factors[k] if k in self.stream_scaling_factors else v) for k, v in data]
-                data = np.hstack([v for k, v in data])
-                if all([isinstance(x, ArrayWithTime) for x in self.last_seen.values()]):
-                    t = max((x.t for x in self.last_seen.values()))
-                    data = ArrayWithTime(input_array=data, t=t)
-                self.last_seen = {}
-            else:
-                data = np.nan * data
-                stream = 'skip'
-
-        stream = self.output_streams[stream]
-        return data, stream if return_output_stream else data
-
-    def get_params(self, deep=True):
-        p = dict(stream_scaling_factors=self.stream_scaling_factors)
-        return p | super().get_params(deep)
-
-
-class Tee(DecoupledEstimator):
-    def __init__(self, input_streams=None, log_level=None, output_streams=None):
-        input_streams = input_streams or PassThroughDict()
-        self.observed = {}
-        super().__init__(input_streams=input_streams, log_level=log_level, output_streams=output_streams)
-
-    def _partial_fit(self, data, stream):
-        if stream in self.input_streams:
-            semantic_stream = self.input_streams[stream]
-            if semantic_stream not in self.observed:
-                self.observed[semantic_stream] = []
-            self.observed[semantic_stream].append(data)
-
-    def transform(self, data, stream=0, return_output_stream=False):
-        return (data, stream) if return_output_stream else data
-
-    def convert_to_array(self):
-        self.observed = {k: ArrayWithTime.from_list(v, squeeze_type='to_2d', drop_early_nans=True) for k, v in self.observed.items()}
-        return self.observed

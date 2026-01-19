@@ -120,28 +120,30 @@ output/parallel_compare_lpp_zoom.svg:
 
 
 #
-#output/benchmark_prosvd_kf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_kf.csv --dimred_type prosvd --pred_type kf
-#output/benchmark_prosvd_bw.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_bw.csv --dimred_type prosvd --pred_type bw
-#output/benchmark_prosvd_vjf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_vjf.csv --dimred_type prosvd --pred_type vjf
-#output/benchmark_sjpca_kf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_kf.csv --dimred_type sjpca --pred_type kf
-#output/benchmark_sjpca_bw.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_bw.csv --dimred_type sjpca --pred_type bw
-#output/benchmark_sjpca_vjf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_vjf.csv --dimred_type sjpca --pred_type vjf
-#output/benchmark_mmica_kf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_kf.csv --dimred_type mmica --pred_type kf
-#output/benchmark_mmica_bw.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_bw.csv --dimred_type mmica --pred_type bw
-#output/benchmark_mmica_vjf.csv:
-#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_vjf.csv --dimred_type mmica --pred_type vjf
+output/benchmark_prosvd_kf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_kf.csv --dimred_type prosvd --pred_type kf
+output/benchmark_prosvd_bw.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_bw.csv --dimred_type prosvd --pred_type bw
+output/benchmark_prosvd_vjf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_vjf.csv --dimred_type prosvd --pred_type vjf
+output/benchmark_sjpca_kf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_kf.csv --dimred_type sjpca --pred_type kf
+output/benchmark_sjpca_bw.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_bw.csv --dimred_type sjpca --pred_type bw
+output/benchmark_sjpca_vjf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_sjpca_vjf.csv --dimred_type sjpca --pred_type vjf
+output/benchmark_mmica_kf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_kf.csv --dimred_type mmica --pred_type kf
+output/benchmark_mmica_bw.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_bw.csv --dimred_type mmica --pred_type bw
+output/benchmark_mmica_vjf.csv:
+	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_mmica_vjf.csv --dimred_type mmica --pred_type vjf
+
+output/benchmark_single_trace.svg: output/benchmark_sjpca_bw.csv
+	$(COMMAND) figure_code/benchmarking/benchmark_single_trace.py --input output/benchmark_sjpca_bw.csv --output output/benchmark_single_trace.svg
+
 #output/benchmark_heatmap_table.svg:
 #	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output output/benchmark_heatmap_table.svg
-#output/benchmark_single_trace.svg:
-#	$(COMMAND) figure_code/benchmarking/benchmark_single_trace.py --input output/benchmark_sjpca_bw.csv --output output/benchmark_single_trace.svg
 
 
 #papermill -p u_function 'curvy spins' -p output output/learn_s_hat_toy_1step_spin.svg figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
