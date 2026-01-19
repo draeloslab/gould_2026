@@ -125,10 +125,12 @@ class MultiKernelRegressor:
             self.reweight()
 
     def reweight(self):
+        if self.n_observed < 2:
+            return
         sample_size = min(self.n_observed, 15)
         sample = self.rng.permutation(min(self.n_observed, self.maxlen))[:sample_size]
-        log_external_weight_vec = numpy.zeros(self.maxlen)
-        log_external_weight_vec[sample] = -numpy.inf
+        external_weight_vec = numpy.ones(self.maxlen)
+        external_weight_vec[sample] = 0
         f = self.make_jax_pred_f()
         def evaluate(length_scales):
             if numpy.any(length_scales <= 1e-10) or numpy.any(length_scales > 1e6):
@@ -137,7 +139,7 @@ class MultiKernelRegressor:
             errors = numpy.zeros(sample_size)
             for i, idx in enumerate(sample):
                 try:
-                    errors[i] = numpy.linalg.norm(f([h[idx] for h in self.input_histories], length_scales, log_external_weight_vec=log_external_weight_vec) - self.output_history[idx])**2
+                    errors[i] = numpy.linalg.norm(f([h[idx] for h in self.input_histories], length_scales, weight_modifiers=external_weight_vec) - self.output_history[idx])**2
                 except (OverflowError, ZeroDivisionError):
                     errors[i] = numpy.inf
             return numpy.mean(errors)
@@ -173,20 +175,20 @@ class MultiKernelRegressor:
             def f(x):
                 return numpy.array([[numpy.nan]])
         else:
-            input_histories = [jnp.array(h) for h in self.input_histories]
+            input_histories = [jnp.nan_to_num(h, nan=jnp.inf) for h in self.input_histories]
             output_history = jnp.array(self.output_history)
-            zeros = jnp.zeros(len(self.output_history))
-            def f(x, length_scales=jnp.array(self.length_scales), log_external_weight_vec=zeros):
-                # log_external_weight_vec is for cross-validation
-                distances = [-length_scale * jnp.linalg.norm(history - jnp.squeeze(sub_x), axis=1) ** 2 for
-                             (sub_x, history, length_scale) in zip(x, input_histories, length_scales)]
-                log_weights = jnp.array(distances).sum(axis=0)
-                log_weights = jnp.nan_to_num(log_weights, nan=-numpy.inf)
-                log_weights = log_weights + log_external_weight_vec
-                log_sum = jax.scipy.special.logsumexp(log_weights)
+            ones = jnp.ones(len(self.output_history))
+            def f(x, length_scales=jnp.array(self.length_scales), weight_modifiers=ones):
+                log_weights = 0
+                for (sub_x, history, length_scale) in zip(x, input_histories, length_scales):
+                    distances = jnp.linalg.norm(history - jnp.squeeze(sub_x), axis=1)
+                    distances = jnp.nan_to_num(distances, nan = jnp.inf)
+                    log_weights += -length_scale * jnp.square(distances)
+                log_weights = jnp.nan_to_num(log_weights, nan=-numpy.inf, neginf=-numpy.inf)
+                log_sum = jax.scipy.special.logsumexp(log_weights, b=weight_modifiers)
                 log_weights = log_weights - log_sum
 
-                return jnp.exp(log_weights) @ output_history
+                return jnp.exp(jnp.clip(log_weights, max=0, min=-30)) @ output_history
         return f
 
     def predict(self, x):
