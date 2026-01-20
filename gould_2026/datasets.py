@@ -9,11 +9,14 @@ from fsspec.implementations.cached import CachingFileSystem
 from contextlib import contextmanager
 from abc import ABC, abstractmethod
 import pandas as pd
+from collections import deque
+import datetime
+import copy
 
 import numpy as np
 from scipy.stats import special_ortho_group
 
-from .estimator import ArrayWithTime
+from .estimator import ArrayWithTime, StreamingEstimator
 
 from .prediction.kalman_filter import KalmanFilter
 
@@ -551,3 +554,211 @@ class Daie21Dataset:
         A, stims = concat_rows(df)
         stims.t = stims.t - dt / 50
         return A, stims
+
+
+class Naumann24uDataset:
+    doi = None
+    automatically_downloadable = False
+    dataset_base_path = DATA_BASE_PATH / "naumann24u"
+    sub_datasets = (
+        "output_020424_ds1",
+        "output_012824_ds3",
+        "output_012824_ds6_fish3",
+    )
+
+    class BehaviorClassifier(StreamingEstimator):
+        def __init__(self, threshold=.3, input_streams=None, output_streams=None, log_level=None):
+            input_streams = input_streams or {0:'X'}
+            super().__init__(input_streams=input_streams, output_streams=output_streams, log_level=log_level)
+            self.history = deque(maxlen=15)
+            self.threshold = threshold
+
+        def _step(self, data, stream, return_output_stream):
+            if self.input_streams[stream] == 'X':
+
+                output = []
+                for angle in data:
+                    self.history.append(angle)
+                    h = np.squeeze(self.history)
+                    if np.isnan(h).any():
+                        data = ArrayWithTime(np.nan, data.t)
+                    elif (h > self.threshold).any():
+                        if (h < -self.threshold).any():
+                            output.append(3)
+                        else:
+                            output.append(1)
+                    elif (h < -self.threshold).any():
+                        output.append(2)
+                    else:
+                        output.append(0)
+                data = ArrayWithTime(output,data.t)
+
+            stream = self.output_streams[stream]
+            return data, stream if return_output_stream else data
+
+        def get_params(self, deep=True):
+            return dict(threshold=self.threshold) | super().get_params(deep=deep)
+
+        # def expected_data_streams(self, rng, DIM, cycles=1):
+        #     for _ in range(cycles):
+        #         for s in self.input_streams:
+        #             yield rng.normal(size=(10, DIM)), s
+
+        def expected_data_streams(self, rng, DIM, cycles=1):
+            for i in range(cycles):
+                for s in self.input_streams:
+                    yield ArrayWithTime(rng.normal(size=(10, DIM)),i), s
+
+    def __init__(self, sub_dataset_identifier=sub_datasets[0], beh_type='angle'):
+        if isinstance(sub_dataset_identifier, int):
+            sub_dataset_identifier = self.sub_datasets[sub_dataset_identifier]
+        self.sub_dataset = sub_dataset_identifier
+        (
+            self.C,
+            self.opto_stimulations,
+            self.neuron_df,
+            self.visual_stimuli,
+            self.tail_position,
+            self.frame_times,
+            self.tail_times,
+            self.tail_angle,
+            self.pose_class,
+            self.background_image,
+            self.neuron_locations  # TODO: join this with neuron_df
+        ) = self.construct(self.sub_dataset)
+
+        self.neural_data = ArrayWithTime(self.C.T, self.frame_times)
+
+        self.end_of_visual_period_sample = self.opto_stimulations['sample'].min() - 1
+        self.end_of_visual_period_time = self.frame_times[self.end_of_visual_period_sample]
+        self.n_neurons_in_opto = np.isfinite(self.neural_data[self.end_of_visual_period_sample, :]).sum()
+
+        self.bin_width = np.median(np.diff(self.frame_times))
+        warnings.warn("bin width is actually improper here")
+        if beh_type == 'bout':
+            self.behavioral_data = ArrayWithTime(self.pose_class, self.tail_times).reshape(-1,1)
+        elif beh_type == 'angle':
+            self.behavioral_data = ArrayWithTime(self.tail_angle, self.tail_times).reshape(-1,1)
+        elif beh_type == 'whole tail':
+            self.behavioral_data = ArrayWithTime(self.tail_position, self.tail_times)
+        elif beh_type == 'offset':
+            self.behavioral_data = ArrayWithTime(self.tail_position[:, -1, :] - self.tail_position[:, 0, :], self.tail_times)
+
+    def construct(self, sub_dataset_identifier):
+        visual_stimuli, optical_stimulations, C, string_tail_position, frame_times, tail_times, background_image, neuron_locations = self.acquire(sub_dataset_identifier)
+
+        C[np.cumsum(C, axis=1) == 0] = np.nan
+
+        # convert the dates from strings to offsets in seconds
+        assert abs(tail_times[0] - frame_times[0]) < datetime.timedelta(minutes=3), 'Check start times/timezones match'
+        experiment_start = min(tail_times[0], frame_times[0])
+        ms = datetime.timedelta(seconds=1)
+        tail_times = np.array([(t - experiment_start)/ms for t in tail_times])
+        frame_times = np.array([(t - experiment_start)/ms for t in frame_times])
+        if frame_times.size > (n_recorded_frames := C.shape[1]):
+            warnings.warn('chopping last frames because C is too small')
+            frame_times = frame_times[:n_recorded_frames]
+
+        # convert the tail positions from strings to arrays
+        tail_position = []
+        for sample in string_tail_position:
+            rows = sample[1:-1].split('[')[1:]
+            rows = [row.split(']')[0].split(',') for row in rows]
+            rows = [[int(x) for x in row] for row in rows]
+            tail_position.append(rows)
+        tail_position = np.array(tail_position)
+
+
+        # make DF's
+        visual_stimuli_df = pd.DataFrame({'sample': visual_stimuli[:,0].astype(int), 'time': frame_times[visual_stimuli[:,0].astype(int)], 'l_angle': visual_stimuli[:,2], 'r_angle': visual_stimuli[:,3]})
+
+        optical_stimulation_df = pd.DataFrame({'sample': optical_stimulations[:, 0].astype(int), 'time': frame_times[optical_stimulations[:,0].astype(int)], 'target_neuron': optical_stimulations[:,2].astype(int)})
+
+        target_neuron = optical_stimulation_df.target_neuron
+        stim_groups = [0]
+        group_sub_stim = [0]
+        stim_name = ['A0']
+        for i in range(1, len(target_neuron)):
+            if target_neuron[i-1] != target_neuron[i]:
+                stim_groups.append(stim_groups[-1]+1)
+                group_sub_stim.append(0)
+            else:
+                stim_groups.append(stim_groups[-1])
+                group_sub_stim.append(group_sub_stim[-1] + 1)
+            stim_name.append(chr(stim_groups[-1] + 65) + str(group_sub_stim[-1]))
+
+        optical_stimulation_df['stim_group'] = stim_groups
+        optical_stimulation_df['group_sub_stim'] = group_sub_stim
+        optical_stimulation_df['stim_name'] = stim_name
+
+        neurons = {}
+        for neuron_id in optical_stimulation_df['target_neuron']:
+            locations = optical_stimulations[optical_stimulations[:,2] == neuron_id, 3:]
+            assert np.all(np.std(locations, axis=0) == 0)
+            neurons[neuron_id] = locations[0,:]
+        neuron_df = pd.DataFrame.from_dict(neurons, orient='index', columns=['x', 'y'])
+
+        displacement = tail_position[:, -1, :] - tail_position[:, 0, :]
+        tail_angle = np.atan2(*(-displacement[:, ::-1]).T)
+
+        pose_class = self.BehaviorClassifier().offline_run_on(ArrayWithTime(tail_angle[:,None,None], tail_times))
+
+        return C, optical_stimulation_df, neuron_df, visual_stimuli_df, tail_position, frame_times, tail_times, tail_angle, pose_class, background_image, neuron_locations
+
+    def acquire(self, sub_dataset_identifier):
+        base = self.dataset_base_path / sub_dataset_identifier
+        if not base.is_dir():
+            print(base)
+            print("""\
+Please ask Anne Draelos how to acquire the Naumann lab dataset we use here. (hint: box)\
+""")
+            raise FileNotFoundError()
+        optical_stimulations = np.load(base/'photostims.npy')
+        visual_stimuli = np.loadtxt(base/'stimmed.txt')
+        tail_position = np.load(base/'tails.npy')
+
+        frame_times = []
+        with open(base/'timing'/ 'framesendtimes.txt') as fhan:
+            for line in fhan:
+                frame_times.append(datetime.datetime.fromisoformat(line[:-2])- datetime.timedelta(hours=5))
+
+        tail_times = []
+        with open(base/'timing'/ 'tailsendtimes.txt') as fhan:
+            for line in fhan:
+                tail_times.append(datetime.datetime.strptime(line[:-1], '%I:%M:%S.%f %p %m/%d/%Y'))
+
+
+
+        c_filename = 'raw_C.txt'
+        if sub_dataset_identifier == 'output_020424_ds1':
+            c_filename = 'analysis_proc_C.txt'
+        C = np.loadtxt(base/c_filename)
+
+        neuron_locations = np.loadtxt(base / 'contours.txt')
+        background_image = np.loadtxt(base / 'image.txt')
+
+        return visual_stimuli, optical_stimulations, C, tail_position, frame_times, tail_times, background_image, neuron_locations
+
+    def plot_colors(self, ax):
+        theta = np.linspace(0, 360)
+        ax.scatter(np.cos(theta * np.pi / 180), np.sin(theta * np.pi / 180), c=self.a2c(theta))
+        ax.axis('equal')
+
+    @staticmethod
+    def a2c(a):
+        import matplotlib
+        a = (a + 30) % 360
+        return matplotlib.cm.ScalarMappable(matplotlib.colors.Normalize(vmin=0, vmax=360), cmap=matplotlib.cm.hsv).to_rgba(a)
+
+
+    def get_rectangular_block(self, n_neurons=150):
+        # type: (Naumann24uDataset, int) -> ArrayWithTime
+        cutoff1 = np.nonzero(np.nancumsum(self.neural_data[:,n_neurons]) > 0)[0][0]
+        cutoff2 = np.nonzero(np.nancumsum(self.neural_data[cutoff1,::-1]))[0][0]
+        neural_data = self.neural_data.slice(cutoff1, -1)[:,:-cutoff2]
+        additional_cutoff_info = np.where(np.isnan(neural_data).any(axis=1))[0]
+        if additional_cutoff_info.size > 0:
+            cutoff3 = additional_cutoff_info[-1] + 1
+            neural_data = neural_data.slice(cutoff3, -1)
+        assert not np.isnan(neural_data).any()
+        return copy.deepcopy(neural_data)

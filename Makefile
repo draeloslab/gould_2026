@@ -12,6 +12,7 @@ all: $(TARGETS)
 COMMAND := coverage run --parallel-mode
 PAPERMILL_COMMAND := coverage run --parallel-mode -m papermill
 export JAX_PLATFORMS=cpu
+export JAX_ENABLE_X64=True
 
 output/hturn_log_pred_p_kf.png:
 	$(COMMAND) figure_code/half_turn_plots/half_turn_log_pred_heatmaps.py --output output/hturn_log_pred_p_kf.png --pred_type kf
@@ -52,7 +53,7 @@ output/learn_s_hat_toy_1step.svg:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_1step.svg --type-of-plot 1-step-prediction
 output/learn_s_hat_toy_manifold_error.svg:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_manifold_error.svg --type-of-plot manifold-error
-#
+
 output/ss_1step_kf.png:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_kf.png --type-of-plot 1-step-prediction --type-of-predictor kf
 output/ss_1step_bw.png:
@@ -63,7 +64,7 @@ output/ss_1step_vjf.png:
 output/optim_col_vs_rand.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand.svg --type-of-plot optim_col_vs_rand
 output/optim_open_vs_closed_toy.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_open_vs_closed_toy.svg --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd # you could do more here
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_open_vs_closed_toy.svg --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd
 output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset odoherty21
 output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
@@ -104,13 +105,12 @@ output/optim_col_vs_rand_with_high_d_rand.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand.svg --type-of-plot optim_col_vs_rand_with_high_d_rand
 output/optim_col_vs_rand_with_high_d_rand_closed.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand_closed.svg --type-of-plot optim_col_vs_rand_with_high_d_rand_closed
-#
-#
-#
+
+
 output/zong_stim.svg:
 	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output output/zong_stim.svg
-#
-#
+
+
 output/paralell_compare.png:
 	$(COMMAND) figure_code/paralell_compare_plots/paralell_compare.py --output output/paralell_compare.png
 output/paralell_compare.svg:
@@ -120,7 +120,6 @@ output/parallel_compare_lpp_zoom.svg:
 	$(PAPERMILL_COMMAND) -p output_file 'output/parallel_compare_lpp_zoom.svg' figure_code/paralell_compare_plots/switching_plot.ipynb /dev/null
 
 
-#
 output/benchmark_prosvd_kf.csv:
 	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output output/benchmark_prosvd_kf.csv --dimred_type prosvd --pred_type kf
 output/benchmark_prosvd_bw.csv:
@@ -143,8 +142,8 @@ output/benchmark_mmica_vjf.csv:
 output/benchmark_single_trace.svg: output/benchmark_sjpca_bw.csv
 	$(COMMAND) figure_code/benchmarking/benchmark_single_trace.py --input output/benchmark_sjpca_bw.csv --output output/benchmark_single_trace.svg
 
-#output/benchmark_heatmap_table.svg:
-#	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output output/benchmark_heatmap_table.svg
+output/benchmark_heatmap_table.svg:
+	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output output/benchmark_heatmap_table.svg
 
 output/learn_s_hat_toy_1step_spin.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
@@ -163,6 +162,15 @@ output/starburst.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 	$(PAPERMILL_COMMAND) -p output output/starburst.svg figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
 
+output/daie21_1step.svg:
+	$(PAPERMILL_COMMAND) -p output output/daie21_1step.svg figure_code/behavior/real_beh.ipynb /tmp/output.ipynb
 
 
-#papermill zong_stim_video for starburst
+output/draelos25_1step.svg:
+	$(PAPERMILL_COMMAND) \
+	-p output1 output/draelos25_1step.svg \
+	-p output2 output/draelos25_stim_locations.svg \
+	-p output3 output/draelos25_low_and_low_d_response.svg \
+	-p output4 output/draelos25_behavior.svg \
+	-p output5 output/draelos25_behavior_stim_locations.svg \
+	 figure_code/behavior/real_improv_dataset.ipynb /tmp/output.ipynb
