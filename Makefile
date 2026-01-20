@@ -11,6 +11,7 @@ all: $(TARGETS)
 
 COMMAND := coverage run --parallel-mode
 PAPERMILL_COMMAND := coverage run --parallel-mode -m papermill
+export JAX_PLATFORMS=cpu
 
 output/hturn_log_pred_p_kf.png:
 	$(COMMAND) figure_code/half_turn_plots/half_turn_log_pred_heatmaps.py --output output/hturn_log_pred_p_kf.png --pred_type kf
@@ -44,70 +45,70 @@ output/native_nearness_to_offline_by_step_sjpca.svg:
 output/native_nearness_to_offline_by_step_mmica.svg:
 	$(COMMAND) figure_code/dim_red_plots/dimension_reduction_plots.py --type-of-plot native_nearness_to_offline --output output/native_nearness_to_offline_by_step_mmica.svg --transformer mmica
 
-#output/show_toy_dataset.svg:
-#	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output output/show_toy_dataset.svg
+output/show_toy_dataset.svg:
+	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output output/show_toy_dataset.svg
 
-#output/learn_s_hat_toy_1step.svg:
-#	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_1step.svg --type-of-plot 1-step-prediction
-#output/learn_s_hat_toy_manifold_error.svg:
-#	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_manifold_error.svg --type-of-plot manifold-error
+output/learn_s_hat_toy_1step.svg:
+	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_1step.svg --type-of-plot 1-step-prediction
+output/learn_s_hat_toy_manifold_error.svg:
+	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output output/learn_s_hat_toy_manifold_error.svg --type-of-plot manifold-error
 #
-#output/ss_1step_kf.png:
-#	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_kf.png --type-of-plot 1-step-prediction --type-of-predictor kf
-#output/ss_1step_bw.png:
-#	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_bw.png --type-of-plot 1-step-prediction --type-of-predictor bw
-#output/ss_1step_vjf.png:
-#	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_vjf.png --type-of-plot 1-step-prediction --type-of-predictor vjf
+output/ss_1step_kf.png:
+	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_kf.png --type-of-plot 1-step-prediction --type-of-predictor kf
+output/ss_1step_bw.png:
+	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_bw.png --type-of-plot 1-step-prediction --type-of-predictor bw
+output/ss_1step_vjf.png:
+	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output output/ss_1step_vjf.png --type-of-plot 1-step-prediction --type-of-predictor vjf
+
+output/optim_col_vs_rand.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand.svg --type-of-plot optim_col_vs_rand
+output/optim_open_vs_closed_toy.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_open_vs_closed_toy.svg --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd # you could do more here
+output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset odoherty21
+output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset zong22
+output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset odoherty21
+output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset zong22
+output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset odoherty21
+output/open_vs_closed_by_dimred_kf_mmica_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset zong22
+output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset odoherty21
+output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset zong22
+output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset odoherty21
+output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset zong22
+output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset odoherty21
+output/open_vs_closed_by_dimred_bw_mmica_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset zong22
+output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset odoherty21
+output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset zong22
+output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset odoherty21
+output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset zong22
+output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset odoherty21
+output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22
+output/optim_col_vs_rand_with_high_d_rand.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand.svg --type-of-plot optim_col_vs_rand_with_high_d_rand
+output/optim_col_vs_rand_with_high_d_rand_closed.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand_closed.svg --type-of-plot optim_col_vs_rand_with_high_d_rand_closed
 #
-#output/optim_col_vs_rand.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand.svg --type-of-plot optim_col_vs_rand
-#output/optim_open_vs_closed_toy.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_open_vs_closed_toy.svg --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd # you could do more here
-#output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset odoherty21
-#output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset zong22
-#output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset odoherty21
-#output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset zong22
-#output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset odoherty21
-#output/open_vs_closed_by_dimred_kf_mmica_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_kf_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset zong22
-#output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset odoherty21
-#output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset zong22
-#output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset odoherty21
-#output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset zong22
-#output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset odoherty21
-#output/open_vs_closed_by_dimred_bw_mmica_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_bw_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset zong22
-#output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset odoherty21
-#output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset zong22
-#output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset odoherty21
-#output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset zong22
-#output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset odoherty21
-#output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22
-#output/optim_col_vs_rand_with_high_d_rand.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand.svg --type-of-plot optim_col_vs_rand_with_high_d_rand
-#output/optim_col_vs_rand_with_high_d_rand_closed.svg:
-#	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand_closed.svg --type-of-plot optim_col_vs_rand_with_high_d_rand_closed
 #
 #
-#
-#output/zong_stim.svg:
-#	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output output/zong_stim.svg
+output/zong_stim.svg:
+	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output output/zong_stim.svg
 #
 #
 output/paralell_compare.png:
@@ -145,6 +146,23 @@ output/benchmark_single_trace.svg: output/benchmark_sjpca_bw.csv
 #output/benchmark_heatmap_table.svg:
 #	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output output/benchmark_heatmap_table.svg
 
+output/learn_s_hat_toy_1step_spin.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p u_function 'curvy spins' -p output output/learn_s_hat_toy_1step_spin.svg figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-#papermill -p u_function 'curvy spins' -p output output/learn_s_hat_toy_1step_spin.svg figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
-#papermill -p u_function 'curvy spins alld-resp' -p output output/learn_s_hat_toy_1step_spin_3d.svg figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+output/nonrotational_dynamics.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output1 output/nonrotational_dynamics.svg -p output2 output/nonrotational_dynamics_sjpca_discovered_space.svg figure_code/simulation_plots/nonrotational_dynamics.ipynb /tmp/output.ipynb
+
+
+output/learn_s_hat_toy_1step_spin_3d.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p u_function 'curvy spins alld-resp' -p output output/learn_s_hat_toy_1step_spin_3d.svg figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+
+output/starburst.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output output/starburst.svg figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
+
+
+
+#papermill zong_stim_video for starburst
