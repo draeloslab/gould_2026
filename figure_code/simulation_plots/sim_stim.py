@@ -86,7 +86,7 @@ def get_presets(comparison_preset):
                 })
 
         case 'optim_open_vs_closed':
-            common = dict(stim_rate = 1/2, exit_time = np.inf, prosvd_k = 10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type='first',)
+            common = dict(stim_rate = 1/2, exit_time = np.inf, prosvd_k = 10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type='random_feasible',)
             to_run = {
                 'open id': common | dict(u_to_s_model_type='identity', true_S='identity'),
                 'closed id': common | dict(u_to_s_model_type='kernel_regressed', true_S='identity'),

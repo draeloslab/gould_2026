@@ -12,6 +12,7 @@ from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import pandas
 from scipy.stats import linregress
+from gould_2026.plotting import Palette
 
 _vh = .5
 verts = [ (-1., -_vh), (-1., _vh), (1., _vh), (1., -_vh), (-1., -_vh), ]
@@ -253,7 +254,7 @@ def plot_optim_col_vs_rand_with_high_d_rand():
         just_normal_sub_df['stim_direction_type'] = just_normal_sub_df['stim_direction_type'].replace(stim_direction_type_subs)
 
         converted_stim_direction_type = stim_direction_type_subs[stim_direction_type]
-        colors = {'feasible':'#beaed4ff', 'Q_0':'#ca1469ff'}
+        colors = {'feasible':Palette.feasible, 'Q_0':Palette.Q0}
         if converted_stim_direction_type in colors:
             color = colors[converted_stim_direction_type]
             _df = just_normal_sub_df[just_normal_sub_df['stim_direction_type'].apply(lambda x: x in {'feasible', 'Q_0'})]
@@ -434,7 +435,7 @@ def plot_optim_open_vs_closed(args):
 
     f = _f
 
-    srs = f(n_runs=5)
+    srs = f(n_runs=1, _recalculate_cache_value=True)
 
     proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(
         extract_metrics(srs, preq_cutoff=None))
@@ -481,8 +482,37 @@ def plot_optim_open_vs_closed(args):
     l_df['n_opt_iterations'] = l_df.l.apply(lambda d: len(d['intermediate_xs']) if 'intermediate_xs' in d else np.nan)
     sns.stripplot(data=l_df, x='sr_key', y='n_opt_iterations', ax=axs4[0,0])
 
+    fig5, axs5 = plt.subplots(figsize=(5, 5), nrows=2, ncols=2, sharex=True, sharey=True, squeeze=False, layout='constrained')
 
-    return fig, [fig2, fig3, fig4]
+    from gould_2026.utils import angle_between
+    l_df['theta'] = l_df['l'].apply(lambda l: angle_between(l['v'], l['observed_s_hat'], radians=False))
+    l_df['r'] = l_df['l'].apply(lambda l: np.linalg.norm(l['observed_s_hat']))
+    l_df['t'] = l_df['l'].apply(lambda l: l['time_of_stim'])
+
+    min_norm = 10
+    max_angle = 20
+
+    for k, ax in zip(l_df.sr_key.unique(), axs5.flatten()):
+        sub_df = l_df[l_df.sr_key == k]
+        sub_df = sub_df[sub_df.t > sub_df.t.median()]
+        ax.scatter(sub_df['theta'], sub_df['r'], s=1, label=k, color='k')
+        patch = plt.Rectangle(xy=(0,min_norm), width=max_angle, height=100, color='r', alpha=.1)
+        ax.add_patch(patch)
+        ax.set_xlim(xmin=0, xmax=180)
+        ax.text(0.99, 0.97, k + f"\n {((sub_df.theta < max_angle) & (sub_df.r > min_norm)).sum()} / {len(sub_df)}", transform=ax.transAxes, ha='right', va='top')
+
+        ax.set_ylim(0,45)
+        ax.axvline(90, linestyle='--', color='gray', alpha=0.5)
+
+    for ax in axs[-1,:]:
+        ax.set_xlabel('Angle between v and s (degrees)')
+
+    for ax in axs[:,0]:
+        ax.set_ylabel('Norm of s')
+
+
+
+    return fig, [fig2, fig3, fig4, fig5]
 
 def plot_optim_open_vs_closed_toy():
     def f():
@@ -562,25 +592,25 @@ if __name__ == '__main__':
         case 'optim_col_vs_rand_with_high_d_rand':
             fig, extra_figs = plot_optim_col_vs_rand_with_high_d_rand()
             for i, extra_fig in enumerate(extra_figs):
-                extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight")
+                extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight", transparent=True)
 
         case 'optim_col_vs_rand_with_high_d_rand_closed':
             fig, extra_figs = plot_optim_col_vs_rand_with_high_d_rand_closed()
             for i, extra_fig in enumerate(extra_figs):
-                extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight")
+                extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight", transparent=True)
 
         case 'optim_open_vs_closed':
             fig, extra_figs = plot_optim_open_vs_closed(args)
 
             for i, extra_fig in enumerate(extra_figs):
-                extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight")
+                extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
 
         case 'optim_open_vs_closed_toy':
             fig, extra_figs = plot_optim_open_vs_closed_toy()
             for i, extra_fig in enumerate(extra_figs):
-                extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight")
+                extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
         case _:
             raise ValueError()
 
 
-    fig.savefig(args.output, bbox_inches="tight")
+    fig.savefig(args.output, bbox_inches="tight", transparent=True)

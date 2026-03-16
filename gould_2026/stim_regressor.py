@@ -230,9 +230,8 @@ class StimRegressor(Predictor):
         return super().get_params(deep) | dict(autoreg=self.autoreg, stim_reg=self.stim_reg, attempt_correction=self.attempt_correction, heed_stimuli=self.heed_stimuli, stim_delay=self.stim_delay, error_on_missed_stim=self.error_on_missed_stim)
 
     def __getstate__(self):
-        # TODO: check for jax?
         self.unevaluated_log_pred_ps = {}
-        return super().__getstate__()
+        return self.__dict__
 
 
 class MissedStimulusError(RuntimeError):

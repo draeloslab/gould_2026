@@ -37,3 +37,8 @@ def column_space_distance(Q1, Q2, method='angles', override_ortho_check=False):
         return np.linalg.norm(Q1_rotated - Q2)
     else:
         raise ValueError()
+
+def angle_between(v1, v2, radians=False):
+    v1_u = v1.flatten() / np.linalg.norm(v1)
+    v2_u = v2.flatten() / np.linalg.norm(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0)) * (180.0 / np.pi if not radians else 1.0)

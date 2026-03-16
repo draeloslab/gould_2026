@@ -237,6 +237,10 @@ def main():
 
     for ax in axs[0,:]:
         ax.remove()
+
+    for ax in axs[1,:]:
+        ax.tick_params(labelbottom=True)
+
     cax = fig.add_subplot(gs[0,:])
 
     x_direction = 0
@@ -259,6 +263,7 @@ def main():
             limits=limit,
             f_on_arrows=lambda x: x * arrow_scale *.8,
         )
+        ax.plot([0,1], [0,0])
 
 
 
@@ -283,7 +288,7 @@ def main():
 
 
     for reg, ax, old_ax in zip(regs, axs[2], axs[1]):
-        density = 200
+        density = 50
         make_heatmap(ax, reg.input_histories[0], x_direction, y_direction, color_direction=-1, density=density, sigma=density * 4/200, cax=cax)
 
     return fig
@@ -299,5 +304,5 @@ if __name__ == '__main__':
 
     fig = main()
 
-    fig.savefig(args.output, bbox_inches="tight")
+    fig.savefig(args.output, bbox_inches="tight", transparent=True)
 

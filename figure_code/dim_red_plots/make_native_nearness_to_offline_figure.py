@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
-
+from gould_2026.plotting import Palette
 
 def make_native_nearness_to_offline_figure(offline_errors, trajectories, t, i, name, offline_error_t=None):
-    colors = ["#F94B00", "#2FA194", "#EC3C8E"]
+    colors = [Palette.prosvd, Palette.sjpca, Palette.mmica]
     common_ylim = [.005, 4]
     common_xticks = [0, 30, 60]
 
