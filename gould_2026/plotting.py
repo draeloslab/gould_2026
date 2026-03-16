@@ -10,9 +10,9 @@ class Palette(str, Enum):
     gray_background = '#E6E6E6FF'
 
     # dimension reduction algorithms
-    prosvd = "#F94B00"
-    sjpca = "#2FA194"
-    mmica = "#EC3C8E"
+    prosvd = "#EC3C8E"
+    sjpca = "#F94B00"
+    mmica = "#2FA194"
 
     # 1-step-ahead prediction plots
     stim_regressed = overused_red
