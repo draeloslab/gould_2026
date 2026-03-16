@@ -433,7 +433,8 @@ def plot_optim_open_vs_closed(args):
         srs = make_srs(data=data, rng=rng, comparison_preset='optim_open_vs_closed', n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args_type_of_dim_red, autoreg=autoreg))
         return srs
 
-    f = _f
+    from gould_2026.save_to_cache import save_to_cache
+    f = save_to_cache('optim_open_vs_closed', location='/mnt/data/gould_2026_cache/')(_f)
 
     srs = f(n_runs=1, _recalculate_cache_value=True)
 
