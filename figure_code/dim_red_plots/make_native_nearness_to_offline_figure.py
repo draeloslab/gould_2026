@@ -4,7 +4,7 @@ import scipy.stats as stats
 from gould_2026.plotting import Palette
 
 def make_native_nearness_to_offline_figure(offline_errors, trajectories, t, i, name, offline_error_t=None):
-    colors = [Palette.prosvd, Palette.sjpca, Palette.mmica]
+    colors = [Palette.sjpca, Palette.mmica, Palette.prosvd]
     common_ylim = [.005, 4]
     common_xticks = [0, 30, 60]
 

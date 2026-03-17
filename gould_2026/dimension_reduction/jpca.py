@@ -3,7 +3,7 @@ from scipy.linalg import block_diag
 
 from ..regression import VanillaOnlineRegressor
 from ..estimator import ArrayWithTime, TypicalEstimator
-from ..utils import align_column_spaces, principle_angles
+from ..utils import align_column_spaces, column_space_distance
 
 
 class BaseSJPCA:
@@ -146,7 +146,7 @@ class sjPCA(TypicalEstimator, BaseSJPCA):
                 continue
             for plane_idx in range(n//2):
                 sub_U = U[:, plane_idx*2: (plane_idx + 1)*2]
-                distances[j, plane_idx] = np.abs(principle_angles(sub_U, subspace)).sum()
+                distances[j, plane_idx] = column_space_distance(sub_U, subspace)
         # todo: divide by pi to normalize to 1?
         return ArrayWithTime(distances, ArrayWithTime.from_list(self.log['U']).t)
 

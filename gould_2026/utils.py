@@ -23,14 +23,16 @@ def align_column_spaces(A, B):
     return (R @ A).T, (B).T
 
 
-def column_space_distance(Q1, Q2, method='angles', override_ortho_check=False):
+def column_space_distance(Q1, Q2, method='grassmann', override_ortho_check=False):
     if not override_ortho_check:
         for Q in Q1, Q2:
             assert is_orthonormal(Q)
     else:
         warnings.warn('this method is intended to be used for only orthogonal matrices')
 
-    if method == 'angles':
+    if method == 'grassmann':
+        return np.linalg.norm(principle_angles(Q1, Q2))
+    elif method == 'angles' or method == 'nuclear':
         return np.abs(principle_angles(Q1, Q2)).sum()
     elif method == 'aligned_diff':
         Q1_rotated, Q2 = align_column_spaces(Q1, Q2)
