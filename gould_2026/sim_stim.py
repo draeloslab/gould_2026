@@ -82,9 +82,7 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
     return equivalent_projection_matrix
 
 
-
-
-def make_sr(
+def run_sim_stim(
         input_array,
         rng,
         autoreg=StreamingKalmanFilter,

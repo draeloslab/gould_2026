@@ -5,7 +5,7 @@ from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
 import numpy as np
 import functools
 
-from gould_2026.sim_stim import make_sr
+from gould_2026.sim_stim import run_sim_stim
 
 
 if __name__ == '__main__':
@@ -33,7 +33,7 @@ if __name__ == '__main__':
         case "vjf":
             autoreg = functools.partial(VJF)
 
-    sr, stim_designer, log = make_sr(
+    sr, stim_designer, log = run_sim_stim(
         neural_data,
         rng,
         autoreg=autoreg,

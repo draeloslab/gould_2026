@@ -10,7 +10,7 @@ import tqdm.auto as tqdm
 import numpy as np
 import pandas as pd
 from gould_2026.stim_designer import OptimizationMethod
-from gould_2026.sim_stim import make_sr as new_make_sr
+from gould_2026.sim_stim import run_sim_stim as new_make_sr
 
 
 
