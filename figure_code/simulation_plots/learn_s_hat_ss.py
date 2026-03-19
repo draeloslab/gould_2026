@@ -9,7 +9,7 @@ from gould_2026.datasets import Zong22Dataset
 from gould_2026.prediction.vjf import VJF
 from gould_2026.prediction.bubblewrap import Bubblewrap
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
-from sim_stim import make_srs, make_slices_tensor
+from sim_stim import make_srs, make_slices_tensor, get_sim_stim_preset
 
 from learn_s_hat_plots import plot_onestep_pred_error_decreasing, make_table
 
@@ -39,7 +39,8 @@ if __name__ == '__main__':
             d = Zong22Dataset()
             data = d.neural_data
 
-            srs = make_srs(data, rng, comparison_preset='default', n_runs=1, show_tqdm=True, overrides=dict(autoreg=autoreg))
+            to_run, _ = get_sim_stim_preset('default')
+            srs = make_srs(data, rng, to_run=to_run, n_runs=1, show_tqdm=True, overrides=dict(autoreg=autoreg))
 
             row_info = [
                 dict(time_slice_type='all', space_slice_type='stim-d', time_slice=slice(None, None)),
@@ -109,7 +110,8 @@ if __name__ == '__main__':
             _, data, _ = LDS.circular_lds(rng=rng).simulate(100, rng=rng)
             data = ArrayWithTime.from_notime(data)
 
-            srs = make_srs(data, rng, comparison_preset='delay-table', n_runs=5, show_tqdm=True)
+            to_run, _ = get_sim_stim_preset(comparison_preset='delay-table')
+            srs = make_srs(data, rng, to_run=to_run, n_runs=5, show_tqdm=True)
 
             table_text, _, means_table = make_table(srs, time_slices=['all'], space_slices=['non-stim-d','stim-d','all'], make_slices_tensor=make_slices_tensor)
             tex_text = to_tex_command(key='delay-table-ss', value=table_text)

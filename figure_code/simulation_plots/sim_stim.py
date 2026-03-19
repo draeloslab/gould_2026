@@ -22,11 +22,9 @@ def make_sr(*args, **kwargs):
     # sr.log['stim_intended_samples'] = ArrayWithTime.from_list(sr.log['stim_intended_samples'])
     return sr
 
-def make_srs(data, rng, comparison_preset=None, n_runs=1, show_tqdm=False, overrides=None):
+def make_srs(data, rng, to_run, n_runs=1, show_tqdm=False, overrides=None):
     if overrides is None:
         overrides = {}
-
-    to_run = get_presets(comparison_preset)
 
     srs = {}
     with tqdm.tqdm(total=len(to_run) * n_runs, disable=not show_tqdm) as pbar:
@@ -41,11 +39,14 @@ def make_srs(data, rng, comparison_preset=None, n_runs=1, show_tqdm=False, overr
     return srs
 
 
-def get_presets(comparison_preset):
-    default_common = dict(stim_magnitude=10, optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity', exit_time=np.inf, stim_rate=None, smoothing_tau=1, centerer_init_size=8 * 25, initial_nostim_period=30, regular_stim_iter=cycle([1 / 10, 1 / 3]), stim_timing_method='regular', autoreg=functools.partial(StreamingKalmanFilter, steps_between_refits=5), )
+def get_sim_stim_preset(comparison_preset):
+    if comparison_preset is None: # this is for the case where this would get called, but we've transitioned the code to be local
+        return {}, {}
 
+    default_common = dict(stim_magnitude=10, optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity', exit_time=np.inf, stim_rate=None, smoothing_tau=1, centerer_init_size=8 * 25, initial_nostim_period=30, regular_stim_iter=cycle([1 / 10, 1 / 3]), stim_timing_method='regular', autoreg=functools.partial(StreamingKalmanFilter, steps_between_refits=5), )
     match comparison_preset:
         case 'pred methods':
+            common = dict()
             to_run = {
                 'kf': dict(autoreg=StreamingKalmanFilter),
                 'bw':dict(autoreg=Bubblewrap),
@@ -122,18 +123,11 @@ def get_presets(comparison_preset):
                 'ignoring stim samples': common | dict(attempt_correction=False, heed_stimuli=True),
                 'unaware of stim': common | dict(attempt_correction=False, heed_stimuli=False),
             }
-        case 'visualization':
-            common = default_common
-            del common['autoreg']
-
-            to_run = {
-                'learning from stim': common | dict(attempt_correction=True, heed_stimuli=True),
-            }
 
         case _:
             raise ValueError()
 
-    return to_run
+    return to_run, common
 
 
 

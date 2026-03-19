@@ -2,7 +2,7 @@ import numpy as np
 
 import json
 import seaborn as sns
-from sim_stim import make_srs
+from sim_stim import make_srs, get_sim_stim_preset
 from gould_2026.estimator import ArrayWithTime
 from gould_2026.datasets import Zong22Dataset, Odoherty21Dataset, LDS
 from gould_2026.prediction.vjf import VJF
@@ -174,7 +174,8 @@ def plot_optim_col_vs_rand_with_high_d_rand():
     def to_cache(n_runs=N):
         d = Odoherty21Dataset()
         data = d.neural_data
-        srs = make_srs(data=data, rng=rng, comparison_preset='optim_col_vs_rand_with_high_d_rand', n_runs=n_runs, show_tqdm=True)
+        to_run, _ = get_sim_stim_preset(comparison_preset='optim_col_vs_rand_with_high_d_rand')
+        srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
         return srs
 
     srs = to_cache(n_runs=N)
@@ -320,7 +321,8 @@ def plot_optim_col_vs_rand_with_high_d_rand_closed():
     def to_cache(n_runs=N):
         d = Odoherty21Dataset()
         data = d.neural_data
-        srs = make_srs(data=data, rng=rng, comparison_preset='optim_col_vs_rand_with_high_d_rand_closed', n_runs=n_runs, show_tqdm=True)
+        to_run, _ = get_sim_stim_preset(comparison_preset='optim_col_vs_rand_with_high_d_rand_closed')
+        srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
         return srs
 
     srs = to_cache(n_runs=1)
@@ -429,8 +431,9 @@ def plot_optim_open_vs_closed(args):
             autoreg = Bubblewrap
         elif args_type_of_autoreg == 'vjf':
             autoreg = VJF
-        
-        srs = make_srs(data=data, rng=rng, comparison_preset='optim_open_vs_closed', n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args_type_of_dim_red, autoreg=autoreg))
+
+        to_run, _ = get_sim_stim_preset(comparison_preset='optim_open_vs_closed')
+        srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args_type_of_dim_red, autoreg=autoreg))
         return srs
 
     from gould_2026.save_to_cache import save_to_cache
@@ -529,7 +532,8 @@ def plot_optim_open_vs_closed_toy():
             t = np.arange(data.shape[0]) * 1 / lds.transitions_per_rotation
             data = ArrayWithTime(data, t)
 
-            srs = make_srs(data=data, rng=rng, comparison_preset='optim_open_vs_closed_toy', n_runs=1, show_tqdm=True, overrides=dict(last_dim_red=args.type_of_dim_red))
+            to_run, _ = get_sim_stim_preset(comparison_preset='optim_open_vs_closed_toy')
+            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=1, show_tqdm=True, overrides=dict(last_dim_red=args.type_of_dim_red))
             all_srs.append(srs)
 
         srs = {k: [sub_srs[k][0] for sub_srs in all_srs] for k in srs.keys()}
@@ -571,7 +575,9 @@ if __name__ == '__main__':
         case 'optim_col_vs_rand':
             d = Odoherty21Dataset()
             data = d.neural_data
-            srs = make_srs(data=data, rng=rng, comparison_preset='optim_col_vs_rand', n_runs=N, show_tqdm=True)
+
+            to_run, _ = get_sim_stim_preset(comparison_preset='optim_col_vs_rand')
+            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=N, show_tqdm=True)
 
 
             proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(extract_metrics(srs, preq_cutoff=50))
