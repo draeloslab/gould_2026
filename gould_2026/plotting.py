@@ -33,7 +33,7 @@ class Palette(str, Enum):
 
 
     f_hat = '#000000'  # gray
-    s_hat = overused_red
+    s_designed = overused_red
     s_obs = overused_red
     v = '#1e7608ff'
     x = '#000000'

@@ -37,9 +37,23 @@ output/parallel_compare_lpp_zoom.svg:
 output/zong_stim.svg:
 	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output output/zong_stim.svg
 
-output/starburst.svg:
+
+
+output/starburst_constrained.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p output output/starburst.svg figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p output output/starburst_constrained.svg -p condition constrained figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
+
+output/starburst_unconstrained.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output output/starburst_unconstrained.svg -p condition unconstrained figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
+
+output/starburst_positive_constrained.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output output/starburst_positive_constrained.svg -p condition positive_constrained figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
+
+output/starburst_sparse_constrained.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output output/starburst_sparse_constrained.svg -p condition sparse_constrained figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
 
 
 # fig:toy

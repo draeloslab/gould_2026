@@ -82,6 +82,9 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
     return equivalent_projection_matrix
 
 
+def _hz_to_isi(x):
+    return 1/x
+
 def run_sim_stim(
         input_array,
         rng,
@@ -130,7 +133,7 @@ def run_sim_stim(
     if stim_rate:
         isi_generator = cycle([1/stim_rate])
     elif regular_stim_iter:
-        isi_generator = map(lambda x: 1/x, regular_stim_iter)
+        isi_generator = map(_hz_to_isi, regular_stim_iter)
         assert stim_timing_method == 'regular'
         stim_timing_method = 'isi'
     del regular_stim_iter, stim_rate
