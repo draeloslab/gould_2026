@@ -180,11 +180,17 @@ output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset odoherty21
 output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22
-output/optim_col_vs_rand_with_high_d_rand.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand.svg --type-of-plot optim_col_vs_rand_with_high_d_rand
-output/optim_col_vs_rand_with_high_d_rand_closed.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/optim_col_vs_rand_with_high_d_rand_closed.svg --type-of-plot optim_col_vs_rand_with_high_d_rand_closed
 
+output/compare_opt_by_target.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/compare_opt_by_target.svg --type-of-plot compare_opt_by_target
+output/compare_opt_by_target_closed.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/compare_opt_by_target_closed.svg --type-of-plot compare_opt_by_target --closed-loop
+
+
+output/compare_opt_by_target_unconstrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/compare_opt_by_target_unconstrained.svg --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained
+output/compare_opt_by_target_closed_unconstrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output output/compare_opt_by_target_closed_unconstrained.svg --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained --closed-loop
 
 
 

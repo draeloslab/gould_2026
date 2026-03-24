@@ -60,32 +60,6 @@ def get_sim_stim_preset(comparison_preset):
                 'random unit vector': common | dict(stim_direction_type='random'),
             }
 
-        case 'optim_col_vs_rand_with_high_d_rand':
-            common = dict(stim_rate=1/2, stim_magnitude=10, exit_time=130)
-            to_run = {}
-            stim_direction_types = ('random_feasible', 'first', 'ones', 'random+', 'col', 'random', '-ones')
-            for stim_direction_type in stim_direction_types:
-                inner_common = common | dict(stim_direction_type=stim_direction_type)
-                to_run.update({
-                    f'normal {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity',),
-                    f'shuffled {stim_direction_type}': inner_common | dict(true_S='high_d_permuted', optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity'),
-                    f'many {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, u_to_s_model_type=None),
-                    f'single {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS, u_to_s_model_type=None),
-                })
-
-        case 'optim_col_vs_rand_with_high_d_rand_closed':
-            common = dict(stim_rate=1/2, stim_magnitude=10, exit_time=130)
-            to_run = {}
-            stim_direction_types = ('first', 'ones', 'random+', 'col', 'random', '-ones')
-            for stim_direction_type in stim_direction_types:
-                inner_common = common | dict(stim_direction_type=stim_direction_type)
-                to_run.update({
-                    f'normal {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='kernel_regressed',),
-                    f'shuffled {stim_direction_type}': inner_common | dict(true_S='high_d_permuted', optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='kernel_regressed'),
-                    f'many {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, u_to_s_model_type=None),
-                    f'single {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS, u_to_s_model_type=None),
-                })
-
         case 'optim_open_vs_closed':
             common = dict(stim_rate = 1/2, exit_time = np.inf, prosvd_k = 10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type='random_feasible',)
             to_run = {
