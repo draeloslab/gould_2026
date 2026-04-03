@@ -57,13 +57,21 @@ output/starburst_sparse_constrained.svg:
 
 
 # fig:toy
+output/learn_s_hat_toy_1step_curvy.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p u_function 'curvy' -p n_runs 500  -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+
 output/learn_s_hat_toy_1step_spin.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy spins' -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'curvy_spins' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-output/learn_s_hat_toy_1step_spin_3d.svg:
+output/learn_s_hat_toy_1step_flip.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy spins alld-resp' -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'curvy_flips' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+
+output/learn_s_hat_toy_1step_3d.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 output/learn_s_hat_toy_manifold_error.svg:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output $@ --type-of-plot manifold-error
@@ -186,6 +194,8 @@ output/compare_opt_by_target.svg:
 output/compare_opt_by_target_closed.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --closed-loop
 
+output/compare_opt_by_target_positive_constrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_positive_constrained
 
 output/compare_opt_by_target_unconstrained.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained
@@ -196,30 +206,30 @@ output/compare_opt_by_target_closed_unconstrained.svg:
 
 
 
-output/benchmark_prosvd_kf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type kf
-output/benchmark_prosvd_bw.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type bw
-output/benchmark_prosvd_vjf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type vjf
-output/benchmark_sjpca_kf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type kf
-output/benchmark_sjpca_bw.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type bw
-output/benchmark_sjpca_vjf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type vjf
-output/benchmark_mmica_kf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type kf
-output/benchmark_mmica_bw.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type bw
-output/benchmark_mmica_vjf.csv:
-	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type vjf
-
-output/benchmark_single_trace.svg: output/benchmark_sjpca_bw.csv
-	$(COMMAND) figure_code/benchmarking/benchmark_single_trace.py --input output/benchmark_sjpca_bw.csv --output $@
-
-output/benchmark_heatmap_table.svg:
-	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output $@
+#output/benchmark_prosvd_kf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type kf
+#output/benchmark_prosvd_bw.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type bw
+#output/benchmark_prosvd_vjf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type prosvd --pred_type vjf
+#output/benchmark_sjpca_kf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type kf
+#output/benchmark_sjpca_bw.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type bw
+#output/benchmark_sjpca_vjf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type sjpca --pred_type vjf
+#output/benchmark_mmica_kf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type kf
+#output/benchmark_mmica_bw.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type bw
+#output/benchmark_mmica_vjf.csv:
+#	$(COMMAND) figure_code/benchmarking/record_benchmark_run.py --output $@ --dimred_type mmica --pred_type vjf
+#
+#output/benchmark_single_trace.svg: output/benchmark_sjpca_bw.csv
+#	$(COMMAND) figure_code/benchmarking/benchmark_single_trace.py --input output/benchmark_sjpca_bw.csv --output $@
+#
+#output/benchmark_heatmap_table.svg:
+#	$(COMMAND) figure_code/benchmarking/benchmark_heatmap_table.py --output $@
 
 
 output/nonrotational_dynamics.svg:

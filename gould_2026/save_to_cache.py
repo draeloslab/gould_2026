@@ -35,17 +35,16 @@ def make_hashable_and_hash(x):
 def save_to_cache(file, location):
     location = pathlib.Path(location)
 
-    cache_index_file = (location / f"{file}_index.json").resolve()
-    try:
-        with open(cache_index_file, 'r') as fhan:
-            cache_index = json.load(fhan)
-    except FileNotFoundError:
-        cache_index = {}
-
     def decorator(original_function):
         @functools.wraps(original_function)
         def new_function(*args, _recalculate_cache_value=False, **kwargs):
-            nonlocal cache_index
+            cache_index_file = (location / f"{file}_index.json").resolve()
+            try:
+                with open(cache_index_file, 'r') as fhan:
+                    cache_index = json.load(fhan)
+            except FileNotFoundError:
+                cache_index = {}
+
             bound_args = inspect.signature(original_function).bind(*args, **kwargs)
             bound_args.apply_defaults()
 
@@ -71,7 +70,7 @@ def save_to_cache(file, location):
                     'args': str(all_args),
                     'filesize_gb': pathlib.Path(cache_file).stat().st_size/1e9,
                     'save_time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-                    'hits': -1
+                    'hits': 0
                 }
 
             with filelock.FileLock(cache_index_file.with_suffix('.lock')):
@@ -81,9 +80,9 @@ def save_to_cache(file, location):
                 except FileNotFoundError:
                     updated_cache_index = {}
 
-                cache_index[all_args_as_key]['hits'] += 1
-
                 updated_cache_index.update(cache_index)
+
+                updated_cache_index[all_args_as_key]['hits'] += 1
 
                 with open(cache_index_file, 'w') as fhan:
                     json.dump(updated_cache_index, fhan, indent=4)
