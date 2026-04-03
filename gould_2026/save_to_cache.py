@@ -2,10 +2,9 @@ import functools
 import hashlib
 import inspect
 import json
-import pathlib
-import pickle
-import warnings
-from collections import namedtuple
+import dill as pickle
+import humanize
+import filelock
 import time
 import pathlib
 
@@ -36,20 +35,6 @@ def make_hashable_and_hash(x):
 def save_to_cache(file, location):
     location = pathlib.Path(location)
 
-    # if not override_config_and_cache:
-    #     def decorator(original_function):
-    #         @functools.wraps(original_function)
-    #         def new_function(*args, _recalculate_cache_value=True, **kwargs):
-    #             bound_args = inspect.signature(original_function).bind(*args, **kwargs)
-    #             bound_args.apply_defaults()
-    #             if not _recalculate_cache_value:
-    #                 warnings.warn("don't try to cache when it's turned off in config")
-    #             return original_function(**bound_args.arguments)
-
-    #         return new_function
-
-    #     return decorator
-
     cache_index_file = (location / f"{file}_index.json").resolve()
     try:
         with open(cache_index_file, 'r') as fhan:
@@ -60,12 +45,12 @@ def save_to_cache(file, location):
     def decorator(original_function):
         @functools.wraps(original_function)
         def new_function(*args, _recalculate_cache_value=False, **kwargs):
+            nonlocal cache_index
             bound_args = inspect.signature(original_function).bind(*args, **kwargs)
             bound_args.apply_defaults()
 
             all_args = bound_args.arguments
             all_args_as_key = str(make_hashable_and_hash(all_args))
-
 
             if _recalculate_cache_value or all_args_as_key not in cache_index or not (location/ cache_index[all_args_as_key]['cache_file']).exists():
                 start = time.time()
@@ -78,11 +63,34 @@ def save_to_cache(file, location):
                 with open(cache_file, "wb") as fhan:
                     pickle.dump(result, fhan)
 
-                cache_index[all_args_as_key] = {'cache_file': cache_file, 'execute_time': execute_time, 'args': str(all_args), 'filesize_gb': pathlib.Path(cache_file).stat().st_size/1e9, 'save_time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
-                with open(cache_index_file, 'w') as fhan:
-                    json.dump(cache_index, fhan, indent=4)
 
-            to_load_from = location/ cache_index[all_args_as_key]['cache_file']
+                cache_index[all_args_as_key] = {
+                    'cache_file': cache_file,
+                    'execute_time': execute_time,
+                    'execute_time_human_readable': humanize.precisedelta(execute_time, minimum_unit="milliseconds"),
+                    'args': str(all_args),
+                    'filesize_gb': pathlib.Path(cache_file).stat().st_size/1e9,
+                    'save_time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+                    'hits': -1
+                }
+
+            with filelock.FileLock(cache_index_file.with_suffix('.lock')):
+                try:
+                    with open(cache_index_file, 'r') as fhan:
+                        updated_cache_index = json.load(fhan)
+                except FileNotFoundError:
+                    updated_cache_index = {}
+
+                cache_index[all_args_as_key]['hits'] += 1
+
+                updated_cache_index.update(cache_index)
+
+                with open(cache_index_file, 'w') as fhan:
+                    json.dump(updated_cache_index, fhan, indent=4)
+
+                cache_index = updated_cache_index
+
+            to_load_from = location / cache_index[all_args_as_key]['cache_file']
             with open(to_load_from, 'rb') as fhan:
                 print(f"retreiving cache from: {to_load_from}")
                 return pickle.load(fhan)
