@@ -190,7 +190,7 @@ class LDS:
                 if i <= transition:
                     rotation_angle = 0
                 else:
-                    rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
+                    rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation) + np.pi
 
                 rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
                                             [np.sin(rotation_angle),  np.cos(rotation_angle)]])

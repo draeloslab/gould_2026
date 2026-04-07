@@ -5,7 +5,7 @@ export JAX_ENABLE_X64=1
 TARGETS := $(shell grep -E '^output/' Makefile | cut -d: -f1 | sort -u)
 all: $(TARGETS)
 	coverage combine --keep
-	coverage html
+	coverage html -i
 	@echo 'open output/reports/coverage-html/index.html 2>/dev/null'
 
 
