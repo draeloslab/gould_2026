@@ -115,6 +115,8 @@ def run_sim_stim(
         centerer_init_size=0,
         last_dim_red='prosvd',
         show_tqdm=False,
+        behavioral_data=ArrayWithTime(np.zeros((2,1)), [np.inf, np.inf]) * np.nan,
+        beh_decay_rate=.8,
 ):
     _init_time = time.time()
     timing_log = SimpleNamespace()
@@ -186,6 +188,13 @@ def run_sim_stim(
         decay=decay_rate
     )
 
+    beh_sim_stim_adder = SimulatedStimAdder(
+        true_S='identity',
+        static_S_seed=static_S_seed,
+        stim_time_delay=stim_time_delay,
+        decay=beh_decay_rate
+    )
+
     log = {}
 
 
@@ -208,6 +217,7 @@ def run_sim_stim(
     decided_stims = []
     stims = []
     latents = []
+    behavior = []
     high_d_without_stim = []
     high_d_with_stim = []
     high_d_stims = []
@@ -219,72 +229,97 @@ def run_sim_stim(
     timing_log.init_time = time.time() - timing_log.init_time
     timing_log.loop_time = time.time()
     with pbar:
-        for data in Pipeline().streaming_run_on(input_array):
-            timing_log.in_sim_time.append(data.t)
-            timing_log.per_loop.append(time.time())
-            timing_log.stim_design.append(time.time())
+        for data, stream in Pipeline().streaming_run_on([(input_array, 'neural_data'), (behavioral_data, 'behavioral_data')], return_output_stream=True):
+            if stream == 'neural_data':
+                timing_log.in_sim_time.append(data.t)
+                timing_log.per_loop.append(time.time())
+                timing_log.stim_design.append(time.time())
 
-            stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
-            decided_stims.append(ArrayWithTime(stim_decision, data.t))
+                stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
+                decided_stims.append(ArrayWithTime(stim_decision, data.t))
 
-            equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
-            if stim_decision and equivalent_projection_matrix is not None:
-                desired_stim = stim_designer.desired_stim_direction(equivalent_projection_matrix, stim_direction_type, other_rng)
-                designed_stim = stim_designer.sim_stim_design_stim(sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
-                instantaneous_stim = designed_stim * stim_magnitude
-            else:
-                instantaneous_stim = np.zeros(input_array.shape[1])
-            timing_log.stim_design[-1] = time.time() - timing_log.stim_design[-1]
-
-            stims.append(ArrayWithTime(instantaneous_stim, data.t))
-
-            true_stim_result = sim_stim_adder.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
-
-            sim_stim_adder.register_stim(true_stim_result)
-
-            high_d_without_stim.append(data)
-            pre_stim_data = data
-            data = sim_stim_adder.run_for_X(data)
-            high_d_with_stim.append(data)
-            high_d_stims.append(data - pre_stim_data)
-
-            timing_log.dimension_reduction.append(time.time())
-            data = centerer.step(data, stream='X')
-            data = smoother.step(data, stream='X')
-            data = pro.step(data, stream='X')
-            if last_dim_red_object is not None:
-                data = last_dim_red_object.step(data, stream='X')
-            timing_log.dimension_reduction[-1] = time.time() - timing_log.dimension_reduction[-1]
-            latents.append(data)
-
-            timing_log.stim_reg_updated.append(sr.stim_reg.n_observed)
-            timing_log.sr_update.append(time.time())
-            sr.step(ArrayWithTime(true_stim_result, data.t), stream='stim')
-            stims_before_obs = set([stim.t for stim in sr.last_seen_stims])
-            data = sr.step(data, stream='X')
-            resolved_stim_ts = stims_before_obs - set([stim.t for stim in sr.last_seen_stims])
-            timing_log.sr_update[-1] = time.time() - timing_log.sr_update[-1]
-            timing_log.stim_reg_updated[-1] = timing_log.stim_reg_updated[-1] != sr.stim_reg.n_observed
-
-            if heed_stimuli and len(resolved_stim_ts):
-                assert len(resolved_stim_ts) == 1
-                stim_t = list(resolved_stim_ts)[0]
-                for l in reversed(stim_designer.log):
-                    if stim_t == l['time_of_stim']:
-                        obs = sr.stim_reg.get_obs(t=stim_t + sr.stim_delay)
-                        # TODO: is this correct?
-                        # obs = sr.stim_reg.get_obs(t=stim_t + sr.dt * len(sim_stim_adder.stim_delay_queue))
-
-                        l['observed_s_hat'] = obs.pop('output')
-                        l['observed_reg_input'] = [v for v in obs.values()]
-                        break
+                equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
+                if stim_decision and equivalent_projection_matrix is not None:
+                    desired_stim = stim_designer.desired_stim_direction(equivalent_projection_matrix, stim_direction_type, other_rng)
+                    designed_stim = stim_designer.sim_stim_design_stim(sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
+                    instantaneous_stim = designed_stim * stim_magnitude
                 else:
-                    raise Exception('resolved stim is not in stim_designer log')
+                    instantaneous_stim = np.zeros(input_array.shape[1])
+                timing_log.stim_design[-1] = time.time() - timing_log.stim_design[-1]
 
-            if show_tqdm:
-                pbar.update(round(float(data.t), 2) - pbar.n)
+                stims.append(ArrayWithTime(instantaneous_stim, data.t))
 
-            timing_log.per_loop[-1] = time.time() - timing_log.per_loop[-1]
+                true_stim_result = sim_stim_adder.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
+
+                sim_stim_adder.register_stim(true_stim_result)
+
+                high_d_without_stim.append(data)
+                pre_stim_data = data
+                data = sim_stim_adder.run_for_X(data)
+                high_d_with_stim.append(data)
+                high_d_stims.append(data - pre_stim_data)
+
+                timing_log.dimension_reduction.append(time.time())
+                data = centerer.step(data, stream='X')
+                data = smoother.step(data, stream='X')
+                data = pro.step(data, stream='X')
+                if last_dim_red_object is not None:
+                    data = last_dim_red_object.step(data, stream='X')
+                timing_log.dimension_reduction[-1] = time.time() - timing_log.dimension_reduction[-1]
+                latents.append(data)
+
+                timing_log.stim_reg_updated.append(sr.stim_reg.n_observed)
+                timing_log.sr_update.append(time.time())
+                sr.step(ArrayWithTime(true_stim_result, data.t), stream='stim')
+                stims_before_obs = set([stim.t for stim in sr.last_seen_stims])
+                data = sr.step(data, stream='X')
+                resolved_stim_ts = stims_before_obs - set([stim.t for stim in sr.last_seen_stims])
+                timing_log.sr_update[-1] = time.time() - timing_log.sr_update[-1]
+                timing_log.stim_reg_updated[-1] = timing_log.stim_reg_updated[-1] != sr.stim_reg.n_observed
+
+                if heed_stimuli and len(resolved_stim_ts):
+                    assert len(resolved_stim_ts) == 1
+                    stim_t = list(resolved_stim_ts)[0]
+                    for l in reversed(stim_designer.log):
+                        if stim_t == l['time_of_stim']:
+                            obs = sr.stim_reg.get_obs(t=stim_t + sr.stim_delay)
+                            # TODO: is this correct?
+                            # obs = sr.stim_reg.get_obs(t=stim_t + sr.dt * len(sim_stim_adder.stim_delay_queue))
+
+                            l['observed_s_hat'] = obs.pop('output')
+                            l['observed_reg_input'] = [v for v in obs.values()]
+                            break
+                    else:
+                        raise Exception('resolved stim is not in stim_designer log')
+
+                if show_tqdm:
+                    pbar.update(round(float(data.t), 2) - pbar.n)
+
+                timing_log.per_loop[-1] = time.time() - timing_log.per_loop[-1]
+            elif stream == 'behavioral_data':
+                def beh_S(point, bottom=-1.24, top=2.4):
+                    point = point / 8
+                    quadratic = point[0] ** 2 - 4 * point[1] ** 2
+                    surface = np.tanh(quadratic) * (top - bottom) / 2
+                    surface = surface - (-(top - bottom) / 2 - bottom)
+                    if np.isnan(surface):
+                        return 0
+                    else:
+                        return surface
+
+                if data.t > 500:
+                    true_beh_stim_result = beh_S(latents[-1][0]) + - data
+                else:
+                    true_beh_stim_result = 0
+
+
+                beh_sim_stim_adder.register_stim(true_beh_stim_result)
+                data = beh_sim_stim_adder.run_for_X(data)
+
+                behavior.append(data)
+            else:
+                raise ValueError()
+
             if data.t > exit_time:
                 break
 
@@ -294,6 +329,7 @@ def run_sim_stim(
     log['high_d_with_stim'] = ArrayWithTime.from_list(high_d_with_stim, squeeze_type='to_2d', drop_early_nans=True)
     assert np.allclose(log['high_d_with_stim'], log['high_d_stims'] + log['high_d_without_stim'])
     log['latents'] = ArrayWithTime.from_list(latents, squeeze_type='to_2d', drop_early_nans=True)
+    log['behavior'] = ArrayWithTime.from_list(behavior, squeeze_type='to_2d', drop_early_nans=True)
     if (log['high_d_stims'] == 0).all():
         warnings.warn("No stims delivered in sim-stim.")
 
