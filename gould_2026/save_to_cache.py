@@ -89,7 +89,7 @@ def save_to_cache(file, location):
 
                 cache_index = updated_cache_index
 
-            to_load_from = location / cache_index[all_args_as_key]['cache_file']
+            to_load_from = cache_index[all_args_as_key]['cache_file']
             with open(to_load_from, 'rb') as fhan:
                 print(f"retreiving cache from: {to_load_from}")
                 return pickle.load(fhan)
