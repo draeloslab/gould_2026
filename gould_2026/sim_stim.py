@@ -82,6 +82,49 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
     return equivalent_projection_matrix
 
 
+def desired_stim_direction(equivalent_projection_matrix, stim_direction_type, rng, max_l0_norm):  # TODO: use built-in rng
+    numpy = np
+    if stim_direction_type == 'first':
+        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
+        desired_stim[0] = 1
+    elif stim_direction_type == 'first2':
+        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 2))
+        desired_stim[0] = 1
+        desired_stim[1] = 1
+    elif stim_direction_type == 'col':
+        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
+        desired_stim[rng.choice(equivalent_projection_matrix.shape[1]), 0] = 1
+    elif stim_direction_type == 'random':
+        desired_stim = rng.normal(size=(equivalent_projection_matrix.shape[1], 1))
+        desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
+    elif stim_direction_type == 'random+':
+        desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
+        desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
+        desired_stim_high_d = numpy.abs(desired_stim_high_d)
+        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
+    elif stim_direction_type == 'random_feasible':
+        desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
+        desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
+        desired_stim_high_d = numpy.abs(desired_stim_high_d).flatten()
+        while (desired_stim_high_d > 0).sum() > max_l0_norm:
+            desired_stim_high_d[rng.choice(len(desired_stim_high_d))] = 0
+        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
+        desired_stim = desired_stim.reshape([-1,1])
+    elif stim_direction_type == 'ones':
+        desired_stim_high_d = numpy.ones((equivalent_projection_matrix.shape[0], 1))
+        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
+    elif stim_direction_type == '-ones':
+        desired_stim_high_d = -numpy.ones((equivalent_projection_matrix.shape[0], 1))
+        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
+    else:
+        raise ValueError()
+    return desired_stim
+
+
 def _hz_to_isi(x):
     return 1/x
 
@@ -240,7 +283,7 @@ def run_sim_stim(
 
                 equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
                 if stim_decision and equivalent_projection_matrix is not None:
-                    desired_stim = stim_designer.desired_stim_direction(equivalent_projection_matrix, stim_direction_type, other_rng)
+                    desired_stim = desired_stim_direction(equivalent_projection_matrix, stim_direction_type, other_rng, stim_designer.max_l0_norm)
                     designed_stim = stim_designer.sim_stim_design_stim(sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
                     instantaneous_stim = designed_stim * stim_magnitude
                 else:
@@ -307,8 +350,8 @@ def run_sim_stim(
                     else:
                         return surface
 
-                if data.t > 500:
-                    true_beh_stim_result = beh_S(latents[-1][0]) + - data
+                if data.t > 500 and len(behavior) % 1000 == 1:
+                    true_beh_stim_result = beh_S(latents[-1][0])
                 else:
                     true_beh_stim_result = 0
 
