@@ -38,6 +38,22 @@ output/zong_stim.svg:
 	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output $@
 
 
+output/compare_opt_by_target.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target
+
+output/compare_opt_by_target_closed.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --closed-loop
+
+output/compare_opt_by_target_positive_constrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_positive_constrained
+
+output/compare_opt_by_target_unconstrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained
+
+output/compare_opt_by_target_closed_unconstrained.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained --closed-loop
+
+
 
 output/starburst_constrained.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
@@ -189,18 +205,6 @@ output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
 output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22
 
-output/compare_opt_by_target.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target
-output/compare_opt_by_target_closed.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --closed-loop
-
-output/compare_opt_by_target_positive_constrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_positive_constrained
-
-output/compare_opt_by_target_unconstrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained
-output/compare_opt_by_target_closed_unconstrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained --closed-loop
 
 
 

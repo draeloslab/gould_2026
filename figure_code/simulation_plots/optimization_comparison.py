@@ -12,7 +12,8 @@ from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import pandas
 from gould_2026.stim_designer import OptimizationMethod
-from scipy.stats import linregress
+import scipy.stats
+import io
 from gould_2026.plotting import Palette
 
 _vh = .5
@@ -231,12 +232,23 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
     sns.violinplot(sub_df, x='stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=stim_direction_types)
 
 
+    # test output file
+    test_result_file = io.StringIO()
+    optimized_feasible_angles = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
+    unoptimized_feasible_angles = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'many')][metric_name]
+    test_result_file.write(f'optimized: [{np.quantile(optimized_feasible_angles, .05):06.3f}, {np.quantile(optimized_feasible_angles, .95):06.3f}]\n')
+    test_result_file.write(f'random:    [{np.quantile(unoptimized_feasible_angles, .05):06.3f}, {np.quantile(unoptimized_feasible_angles, .95):06.3f}]\n')
+    test_result = scipy.stats.wilcoxon(optimized_feasible_angles, unoptimized_feasible_angles)
+    test_result_file.write(f'p = {test_result.pvalue}\n')
+
+
+
     for i, collection in enumerate(ax.collections):
         if hasattr(collection, 'get_facecolor'):
             if i % 2 == 0:
                 collection.set_facecolor(Palette[stim_direction_types[i//2]])
 
-    return fig, []
+    return fig, [], [test_result_file]
 
 def plot_optim_open_vs_closed(args):
     def _f(n_runs=N, args_dataset=args.dataset, args_type_of_dim_red=args.type_of_dim_red, args_type_of_autoreg=args.type_of_autoreg):
@@ -421,9 +433,12 @@ if __name__ == '__main__':
 
 
         case 'compare_opt_by_target':
-            fig, extra_figs = compare_opt_by_target(closed=args.closed_loop, optimization_method=args.optimization_method)
+            fig, extra_figs, text_files = compare_opt_by_target(closed=args.closed_loop, optimization_method=args.optimization_method)
             for i, extra_fig in enumerate(extra_figs):
                 extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight", transparent=True)
+            for i, extra_text in enumerate(text_files):
+                with args.output.with_stem(args.output.stem +f'_extra_{i}').with_suffix('.txt').open('w') as f:
+                    print(extra_text.getvalue(), file=f)
 
         case 'optim_open_vs_closed':
             fig, extra_figs = plot_optim_open_vs_closed(args)
