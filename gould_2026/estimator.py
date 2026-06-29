@@ -342,14 +342,14 @@ class StreamingEstimator(ABC):
             the stream the outputted data should be routed to
         """
         if self.log_level >= 1:
-            start = time.time()
+            start = time.perf_counter()
             self.log['stream'].append(stream)
             self.pre_log_for_step(data, stream)
 
         ret = self._step(data, stream, return_output_stream)
 
         if self.log_level >= 1:
-            time_elapsed = time.time() - start
+            time_elapsed = time.perf_counter() - start
             if hasattr(data, 't'):
                 time_elapsed = ArrayWithTime(time_elapsed, data.t)
             self.log['step_time'].append(time_elapsed)
@@ -675,9 +675,9 @@ class Predictor(StreamingEstimator):
         if self.log_level >= 1:
             self.log['stream'].append(stream)
 
-        start = time.time()
+        start = time.perf_counter()
         ret = self._step(data, stream, return_output_stream)
-        time_elapsed = time.time() - start
+        time_elapsed = time.perf_counter() - start
 
         if self.log_level >= 1:
             if hasattr(data, 't'):

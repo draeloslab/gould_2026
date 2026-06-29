@@ -289,7 +289,7 @@ class StimDesigner:
 
 
     def design_stim(self, v, optimization_method=None, **kwargs):
-        start_time = time.time()
+        start_time = time.perf_counter()
         assert len(v.shape) == 2
 
         l = {}
@@ -325,7 +325,7 @@ class StimDesigner:
 
         if self.should_log:
             self.log.append({
-                'optimization_time': time.time() - start_time,
+                'optimization_time': time.perf_counter() - start_time,
                 'v':v,
                 'u':u,
                 's': numpy.nan * v

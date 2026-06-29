@@ -52,9 +52,9 @@ def save_to_cache(file, location):
             all_args_as_key = str(make_hashable_and_hash(all_args))
 
             if _recalculate_cache_value or all_args_as_key not in cache_index or not (location/ cache_index[all_args_as_key]['cache_file']).exists():
-                start = time.time()
+                start = time.perf_counter()
                 result = original_function(**all_args)
-                execute_time = time.time() - start
+                execute_time = time.perf_counter() - start
 
                 hstring = str(all_args_as_key)[-15:]
                 cache_file = str((location/ f"{file}_{hstring}.pickle").resolve())

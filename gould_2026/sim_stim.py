@@ -161,7 +161,7 @@ def run_sim_stim(
         behavioral_data=ArrayWithTime(np.zeros((2,1)), [np.inf, np.inf]) * np.nan,
         beh_decay_rate=.8,
 ):
-    _init_time = time.time()
+    _init_time = time.perf_counter()
     timing_log = SimpleNamespace()
     timing_log.init_time = _init_time
     timing_log.loop_time = 0
@@ -269,14 +269,14 @@ def run_sim_stim(
     if show_tqdm:
         pbar = tqdm(total=min(input_array.t[-1], exit_time))
 
-    timing_log.init_time = time.time() - timing_log.init_time
-    timing_log.loop_time = time.time()
+    timing_log.init_time = time.perf_counter() - timing_log.init_time
+    timing_log.loop_time = time.perf_counter()
     with pbar:
         for data, stream in Pipeline().streaming_run_on([(input_array, 'neural_data'), (behavioral_data, 'behavioral_data')], return_output_stream=True):
             if stream == 'neural_data':
                 timing_log.in_sim_time.append(data.t)
-                timing_log.per_loop.append(time.time())
-                timing_log.stim_design.append(time.time())
+                timing_log.per_loop.append(time.perf_counter())
+                timing_log.stim_design.append(time.perf_counter())
 
                 stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
                 decided_stims.append(ArrayWithTime(stim_decision, data.t))
@@ -288,7 +288,7 @@ def run_sim_stim(
                     instantaneous_stim = designed_stim * stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
-                timing_log.stim_design[-1] = time.time() - timing_log.stim_design[-1]
+                timing_log.stim_design[-1] = time.perf_counter() - timing_log.stim_design[-1]
 
                 stims.append(ArrayWithTime(instantaneous_stim, data.t))
 
@@ -302,22 +302,22 @@ def run_sim_stim(
                 high_d_with_stim.append(data)
                 high_d_stims.append(data - pre_stim_data)
 
-                timing_log.dimension_reduction.append(time.time())
+                timing_log.dimension_reduction.append(time.perf_counter())
                 data = centerer.step(data, stream='X')
                 data = smoother.step(data, stream='X')
                 data = pro.step(data, stream='X')
                 if last_dim_red_object is not None:
                     data = last_dim_red_object.step(data, stream='X')
-                timing_log.dimension_reduction[-1] = time.time() - timing_log.dimension_reduction[-1]
+                timing_log.dimension_reduction[-1] = time.perf_counter() - timing_log.dimension_reduction[-1]
                 latents.append(data)
 
                 timing_log.stim_reg_updated.append(sr.stim_reg.n_observed)
-                timing_log.sr_update.append(time.time())
+                timing_log.sr_update.append(time.perf_counter())
                 sr.step(ArrayWithTime(true_stim_result, data.t), stream='stim')
                 stims_before_obs = set([stim.t for stim in sr.last_seen_stims])
                 data = sr.step(data, stream='X')
                 resolved_stim_ts = stims_before_obs - set([stim.t for stim in sr.last_seen_stims])
-                timing_log.sr_update[-1] = time.time() - timing_log.sr_update[-1]
+                timing_log.sr_update[-1] = time.perf_counter() - timing_log.sr_update[-1]
                 timing_log.stim_reg_updated[-1] = timing_log.stim_reg_updated[-1] != sr.stim_reg.n_observed
 
                 if heed_stimuli and len(resolved_stim_ts):
@@ -338,7 +338,7 @@ def run_sim_stim(
                 if show_tqdm:
                     pbar.update(round(float(data.t), 2) - pbar.n)
 
-                timing_log.per_loop[-1] = time.time() - timing_log.per_loop[-1]
+                timing_log.per_loop[-1] = time.perf_counter() - timing_log.per_loop[-1]
             elif stream == 'behavioral_data':
                 def beh_S(point, bottom=-1.24, top=2.4):
                     point = point / 8
@@ -366,7 +366,7 @@ def run_sim_stim(
             if data.t > exit_time:
                 break
 
-    timing_log.loop_time = time.time() - timing_log.loop_time
+    timing_log.loop_time = time.perf_counter() - timing_log.loop_time
     log['high_d_stims'] = ArrayWithTime.from_list(high_d_stims, squeeze_type='to_2d', drop_early_nans=True)
     log['high_d_without_stim'] = ArrayWithTime.from_list(high_d_without_stim, squeeze_type='to_2d', drop_early_nans=True)
     log['high_d_with_stim'] = ArrayWithTime.from_list(high_d_with_stim, squeeze_type='to_2d', drop_early_nans=True)
