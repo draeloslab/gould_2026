@@ -234,12 +234,34 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
     # test output file
     test_result_file = io.StringIO()
-    optimized_feasible_angles = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
-    unoptimized_feasible_angles = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'many')][metric_name]
-    test_result_file.write(f'optimized: [{np.quantile(optimized_feasible_angles, .05):06.3f}, {np.quantile(optimized_feasible_angles, .95):06.3f}]\n')
-    test_result_file.write(f'random:    [{np.quantile(unoptimized_feasible_angles, .05):06.3f}, {np.quantile(unoptimized_feasible_angles, .95):06.3f}]\n')
-    test_result = scipy.stats.wilcoxon(optimized_feasible_angles, unoptimized_feasible_angles)
-    test_result_file.write(f'p = {test_result.pvalue}\n')
+    for stim_direction_type in stim_direction_types:
+        test_result_file.write(f"comparison for '{stim_direction_type}', optimized ('normal') vs random ('many') [.05, .5, .95]\n")
+
+        to_compare = dict()
+        for optim_method in sub_df['optim_method'].unique():
+            x = sub_df[(sub_df['stim_direction_type'] == stim_direction_type) & (sub_df['optim_method'] == optim_method)][metric_name]
+            a, b, c = np.quantile(x, [.05, .5, .95])
+            test_result_file.write(f'{optim_method}: [{a:06.3f}, {b:06.3f}, {c:06.3f}]')
+            threshold = .9
+            centered_to_median = np.abs(x - np.quantile(x, .5))
+            test_result_file.write(f' median to .9 = {float(np.quantile(centered_to_median, threshold)):06.3f}\n')
+            to_compare[optim_method] = x
+
+        test_result = scipy.stats.wilcoxon(to_compare['normal'], to_compare['many'])
+        test_result_file.write(f'p = {test_result.pvalue}\n\n')
+
+
+    x = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
+    y = sub_df[(sub_df['stim_direction_type'] == 'dense') & (sub_df['optim_method'] == 'normal')][metric_name]
+    test_result = scipy.stats.wilcoxon(x, y)
+    test_result_file.write(f'feasible vs dense:\n')
+    test_result_file.write(f'p = {test_result.pvalue}\n\n')
+
+    x = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
+    y = sub_df[(sub_df['stim_direction_type'] == 'negative') & (sub_df['optim_method'] == 'normal')][metric_name]
+    test_result = scipy.stats.wilcoxon(x, y)
+    test_result_file.write(f'feasible vs negative:\n')
+    test_result_file.write(f'p = {test_result.pvalue}\n\n')
 
 
 
