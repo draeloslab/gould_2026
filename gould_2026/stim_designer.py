@@ -356,9 +356,9 @@ class StimDesigner:
                 def u_to_s_function(u):
                     return stim_magnitude * equivalent_projection_matrix.T @ u
                 designed_stim = self.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-        elif optimization_method == 'cheat_lowd_vec' and u_to_s_model_type == 'identity':
+        elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == 'identity':
             designed_stim = self.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
-        elif optimization_method in {'cheat_highd_vec_single_neurons','cheat_highd_vec_many_neurons'} and u_to_s_model_type is None:
+        elif optimization_method in {OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS}:
             designed_stim = self.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
         else:
             raise ValueError()
