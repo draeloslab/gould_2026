@@ -172,74 +172,85 @@ def open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_er
 
 N = 2
 
-def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.JAXOPT):
+from gould_2026.save_to_cache import save_to_cache
 
-    from gould_2026.save_to_cache import save_to_cache
-    @save_to_cache('compare_opt_by_target', location='/mnt/data/gould_2026_cache/')
 
-    def to_cache(n_runs=N, closed=closed, optimization_method=optimization_method):
-        d = Odoherty21Dataset()
-        data = d.neural_data
+@save_to_cache('make_table_over_target_type', location='/mnt/data/gould_2026_cache/')
+def make_table_over_target_type(n_runs, stim_direction_types):
+    d = Odoherty21Dataset()
+    data = d.neural_data
 
+    common = dict(stim_rate=1 / 2, stim_magnitude=10, exit_time=130)
+    to_run = {}
+    for closed in [False, True]:
         u_to_s_model_type = 'identity' if not closed else 'kernel_regressed'
-        common = dict(stim_rate=1 / 2, stim_magnitude=10, exit_time=130)
-        to_run = {}
-        stim_direction_types = ('random_feasible', 'first', 'ones', 'random+', 'col', 'random', '-ones')
         for stim_direction_type in stim_direction_types:
             inner_common = common | dict(stim_direction_type=stim_direction_type)
-            to_run.update({
-                f'normal {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type, ),
-                f'shuffled {stim_direction_type}': inner_common | dict(true_S='high_d_permuted', optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type),
-                f'many {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, u_to_s_model_type=None),
-                f'single {stim_direction_type}': inner_common | dict(true_S='identity', optimization_method=OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS, u_to_s_model_type=None),
-            })
 
-        srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
-        return srs
-
-    srs = to_cache(n_runs=N)
-
+            for optimization_method in [
+                OptimizationMethod.JAXOPT,
+                OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED,
+                OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED,
+                OptimizationMethod.JAXOPT_UNCONSTRAINED,
+                OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS,
+            ]:
+                to_run[f'{optimization_method} {stim_direction_type} {closed}'] = inner_common | dict(true_S='identity', optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type)
+    srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
     l_df = srs_to_l_df(srs)
-    l_df[['optim_method', 'stim_direction_type']] = l_df['sr_key'].str.split(' ', expand=True)
 
-    for stim_direction_type_to_drop in [
-        'random+',
-        'col'
-    ]:
-        l_df.drop(index=l_df.index[(l_df.stim_direction_type == stim_direction_type_to_drop)], inplace=True)
-
-
-    order = ('-ones', 'ones', 'random', 'random_feasible', 'first')
-    l_df.sort_values(by='stim_direction_type', inplace=True, key=lambda x: x.apply(order.index))
+    l_df[['optim_method', 'stim_direction_type', 'closed']] = l_df['sr_key'].str.split(' ', expand=True)
+    l_df['closed'] = l_df['closed'].map({'True': True, 'False': False})
 
     stim_direction_type_subs = {'first': 'Q_0', 'random_feasible': 'feasible', '-ones': 'negative', 'ones': 'dense', 'random': 'random'}
+    l_df['display_stim_direction_type'] = l_df['stim_direction_type'].replace(stim_direction_type_subs)
+
+    return l_df
 
 
-    order = ('first', '-ones', 'ones', 'random', 'random_feasible')
-    l_df.sort_values(by='stim_direction_type', inplace=True, key=lambda x: x.apply(order.index))
-    l_df['stim_direction_type'] = l_df['stim_direction_type'].replace(stim_direction_type_subs)
+def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.JAXOPT):
+    stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
+
+    l_df = make_table_over_target_type(n_runs=N, stim_direction_types=stim_direction_types)
+
+    order = ('Q_0', 'negative', 'dense', 'random', 'feasible')
+    l_df.sort_values(by='display_stim_direction_type', inplace=True, key=lambda x: x.apply(order.index))
+
+    sub_df = l_df[
+        (l_df['closed'] == closed)
+        &
+        l_df['optim_method'].apply(lambda x: x in [optimization_method, OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS])
+    ]
+
+    sub_df['optim_method'] = sub_df['optim_method'].map({
+        OptimizationMethod.JAXOPT: 'normal',
+        OptimizationMethod.JAXOPT_UNCONSTRAINED: 'normal',
+        OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED: 'normal',
+        OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED: 'normal',
+        OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS: 'many',
+    })
+
+
 
     fig, axs= plt.subplots(ncols=1, nrows=1, figsize=(8,8), squeeze=False, layout='constrained')
 
 
-    sub_df = l_df[(l_df['optim_method'].apply(lambda x: x in ['normal', 'many']))]
     ax: plt.Axes = axs[0, 0]
     metric_name = 'angles(s_obs,v)'
     sub_df[metric_name] = sub_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
 
-    stim_direction_types = sub_df['stim_direction_type'].unique()
     palette = {'normal': '#00000000', 'many': 'gray'}
-    sns.violinplot(sub_df, x='stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=stim_direction_types)
+    sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order)
 
 
     # test output file
     test_result_file = io.StringIO()
+    stim_direction_types = sub_df['display_stim_direction_type'].unique()
     for stim_direction_type in stim_direction_types:
         test_result_file.write(f"comparison for '{stim_direction_type}', optimized ('normal') vs random ('many') [.05, .5, .95]\n")
 
         to_compare = dict()
         for optim_method in sub_df['optim_method'].unique():
-            x = sub_df[(sub_df['stim_direction_type'] == stim_direction_type) & (sub_df['optim_method'] == optim_method)][metric_name]
+            x = sub_df[(sub_df['display_stim_direction_type'] == stim_direction_type) & (sub_df['optim_method'] == optim_method)][metric_name]
             a, b, c = np.quantile(x, [.05, .5, .95])
             test_result_file.write(f'{optim_method}: [{a:06.3f}, {b:06.3f}, {c:06.3f}]')
             threshold = .9
@@ -251,14 +262,14 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
         test_result_file.write(f'p = {test_result.pvalue}\n\n')
 
 
-    x = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
-    y = sub_df[(sub_df['stim_direction_type'] == 'dense') & (sub_df['optim_method'] == 'normal')][metric_name]
+    x = sub_df[(sub_df['display_stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
+    y = sub_df[(sub_df['display_stim_direction_type'] == 'dense') & (sub_df['optim_method'] == 'normal')][metric_name]
     test_result = scipy.stats.wilcoxon(x, y)
     test_result_file.write(f'feasible vs dense:\n')
     test_result_file.write(f'p = {test_result.pvalue}\n\n')
 
-    x = sub_df[(sub_df['stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
-    y = sub_df[(sub_df['stim_direction_type'] == 'negative') & (sub_df['optim_method'] == 'normal')][metric_name]
+    x = sub_df[(sub_df['display_stim_direction_type'] == 'feasible') & (sub_df['optim_method'] == 'normal')][metric_name]
+    y = sub_df[(sub_df['display_stim_direction_type'] == 'negative') & (sub_df['optim_method'] == 'normal')][metric_name]
     test_result = scipy.stats.wilcoxon(x, y)
     test_result_file.write(f'feasible vs negative:\n')
     test_result_file.write(f'p = {test_result.pvalue}\n\n')
@@ -267,8 +278,8 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
     for i, collection in enumerate(ax.collections):
         if hasattr(collection, 'get_facecolor'):
-            if i % 2 == 0:
-                collection.set_facecolor(Palette[stim_direction_types[i//2]])
+            if (collection.get_facecolor() == np.array([0,0,0,1])).all(): # in palette, 'normal' gets black
+                collection.set_facecolor(Palette[order[i//len(palette)]])
 
     return fig, [], [test_result_file]
 
@@ -372,7 +383,7 @@ def plot_optim_open_vs_closed(args):
 
 
 
-    return fig, [fig2, fig3, fig4, fig5]
+    return fig, [fig2, fig3, fig4, fig5], []
 
 def plot_optim_open_vs_closed_toy():
     def f():
@@ -463,7 +474,7 @@ if __name__ == '__main__':
                     print(extra_text.getvalue(), file=f)
 
         case 'optim_open_vs_closed':
-            fig, extra_figs = plot_optim_open_vs_closed(args)
+            fig, extra_figs, text_files = plot_optim_open_vs_closed(args)
 
             for i, extra_fig in enumerate(extra_figs):
                 extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
