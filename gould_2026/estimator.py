@@ -98,8 +98,8 @@ class ArrayWithTime(np.ndarray):
     # https://numpy.org/doc/stable/user/basics.subclassing.html#slightly-more-realistic-example-attribute-added-to-existing-array
     # https://stackoverflow.com/a/51955094
     def __new__(cls, input_array, t):
-        obj = np.asarray(input_array).view(cls)
-        obj.t = t
+        obj = np.array(input_array).view(cls)
+        obj.t = t # TODO: make this an array?
         return obj
 
     def __array_finalize__(self, obj):

@@ -19,6 +19,7 @@ from .dimension_reduction.prosvd import proSVD
 from .regression import MultiKernelRegressor
 from .prediction.kalman_filter import StreamingKalmanFilter
 from .stim_designer import StimDesigner
+from .save_to_cache import save_to_cache
 
 
 class SimulatedStimAdder:
@@ -128,6 +129,8 @@ def desired_stim_direction(equivalent_projection_matrix, stim_direction_type, rn
 def _hz_to_isi(x):
     return 1/x
 
+
+@save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
 def run_sim_stim(
         input_array,
         rng,

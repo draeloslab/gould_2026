@@ -7,6 +7,9 @@ import humanize
 import filelock
 import time
 import pathlib
+from abc import ABCMeta
+import xxhash
+from dataclasses import is_dataclass, asdict
 
 import numpy as np
 
@@ -15,21 +18,49 @@ from gould_2026.estimator import ArrayWithTime
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, ArrayWithTime):
-            return [obj.tolist(), obj.t.tolist()]
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
+        if isinstance(obj, np.ndarray):
+            # Store a compact fingerprint instead of the full array contents
+            return {
+                '__ndarray__': True,
+                'shape': obj.shape,
+                'dtype': str(obj.dtype),
+                'hash': hashlib.sha1(obj.tobytes()).hexdigest(),
+            }
+        elif isinstance(obj, ArrayWithTime):
+            return (self.default(obj.as_array()), self.default(obj.t))
         elif isinstance(obj, np.random.Generator):
             return (obj.bit_generator.__class__, obj.bit_generator.state)
+        elif is_dataclass(obj):
+            return asdict(obj)
+        elif isinstance(obj, ABCMeta):
+            return inspect.getsource(obj)
         return json.JSONEncoder.default(self, obj)
 
 
-def make_hashable(x):
-    return json.dumps(x, sort_keys=True, cls=NumpyEncoder).encode()
-
-
-def make_hashable_and_hash(x):
-    return int(hashlib.sha1(make_hashable(x)).hexdigest(), 16)
+def _hash_value(x):
+    """Recursively build a hashlib.sha1 digest that handles large numpy arrays efficiently."""
+    h = xxhash.xxh64()
+    if isinstance(x, np.ndarray):
+        h.update(str(x.shape).encode())
+        h.update(str(x.dtype).encode())
+        # Hash raw bytes directly — no copy, no list conversion
+        h.update(np.ascontiguousarray(x).data)
+        if isinstance(x, ArrayWithTime):
+            h.update(np.ascontiguousarray(x.t).data)
+    elif isinstance(x, dict):
+        for k in sorted(x.keys(), key=str):
+            h.update(str(k).encode())
+            h.update(_hash_value(x[k]).digest())
+    elif isinstance(x, (list, tuple)):
+        for item in x:
+            h.update(_hash_value(item).digest())
+    elif is_dataclass(x):
+        h.update(_hash_value(asdict(x)).digest())
+    elif isinstance(x, np.random.Generator):
+        h.update(json.dumps((str(x.bit_generator.__class__), x.bit_generator.state), sort_keys=True).encode())
+    else:
+        h.update(json.dumps(x, sort_keys=True, cls=NumpyEncoder).encode())
+    return h
 
 
 def save_to_cache(file, location):
@@ -49,7 +80,7 @@ def save_to_cache(file, location):
             bound_args.apply_defaults()
 
             all_args = bound_args.arguments
-            all_args_as_key = str(make_hashable_and_hash(all_args))
+            all_args_as_key = _hash_value(all_args).hexdigest()
 
             if _recalculate_cache_value or all_args_as_key not in cache_index or not (location/ cache_index[all_args_as_key]['cache_file']).exists():
                 start = time.perf_counter()
