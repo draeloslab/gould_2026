@@ -204,6 +204,9 @@ def make_table_over_target_type(n_runs, stim_direction_types):
     stim_direction_type_subs = {'first': 'Q_0', 'random_feasible': 'feasible', '-ones': 'negative', 'ones': 'dense', 'random': 'random'}
     l_df['display_stim_direction_type'] = l_df['stim_direction_type'].replace(stim_direction_type_subs)
 
+
+    l_df['angles(s_obs,v)'] = l_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
+
     return l_df
 
 
@@ -236,8 +239,6 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
     ax: plt.Axes = axs[0, 0]
     metric_name = 'angles(s_obs,v)'
-    sub_df[metric_name] = sub_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
-
     palette = {'normal': '#00000000', 'many': 'gray'}
     sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order)
 
@@ -282,6 +283,43 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
                 collection.set_facecolor(Palette[order[i//len(palette)]])
 
     return fig, [], [test_result_file]
+
+def cross_method_target_tests():
+    stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
+
+    l_df = make_table_over_target_type(n_runs=N, stim_direction_types=stim_direction_types)
+
+    test_result_file = io.StringIO()
+
+    for target in ['feasible', 'random']:
+        metric_name = 'angles(s_obs,v)'
+        method1 = OptimizationMethod.JAXOPT
+        method2 = OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED
+        closed = False
+
+        target_slice = l_df['display_stim_direction_type'] == target
+        closed_slice = l_df['closed'] == closed
+
+        method_slice = l_df['optim_method'] == method1
+        standard_performance = l_df[target_slice & closed_slice & method_slice][metric_name]
+
+        method_slice = l_df['optim_method'] == method2
+        relaxed_performance = l_df[target_slice & closed_slice & method_slice][metric_name]
+
+        test_result = scipy.stats.wilcoxon(standard_performance, relaxed_performance)
+        test_result_file.write(f'{method1} vs {method2} performance ({target=} {closed=}, {metric_name=}):\n')
+        test_result_file.write(f'{method1} median: {np.quantile(standard_performance, .5):.2f}\n')
+        test_result_file.write(f'{method2} median: {np.quantile(relaxed_performance, .5):.2f}\n')
+        test_result_file.write(f'difference: {np.quantile(standard_performance, .5) - np.quantile(relaxed_performance, .5):.2f}\n')
+        test_result_file.write(f'p={test_result.pvalue}\n\n')
+
+
+    fig, ax = plt.subplots()
+
+    sns.stripplot(data=l_df[closed_slice], x='display_stim_direction_type', hue='optim_method', y=metric_name, ax=ax, dodge=True)
+
+    return fig, test_result_file
+
 
 def plot_optim_open_vs_closed(args):
     def _f(n_runs=N, args_dataset=args.dataset, args_type_of_dim_red=args.type_of_dim_red, args_type_of_autoreg=args.type_of_autoreg):
@@ -472,7 +510,10 @@ if __name__ == '__main__':
             for i, extra_text in enumerate(text_files):
                 with args.output.with_stem(args.output.stem +f'_extra_{i}').with_suffix('.txt').open('w') as f:
                     print(extra_text.getvalue(), file=f)
-
+        case 'cross_method_target_tests':
+            fig, test_output = cross_method_target_tests()
+            with open(args.output.with_suffix('.txt'), 'w') as f:
+                f.write(test_output.getvalue())
         case 'optim_open_vs_closed':
             fig, extra_figs, text_files = plot_optim_open_vs_closed(args)
 
@@ -487,4 +528,5 @@ if __name__ == '__main__':
             raise ValueError()
 
 
-    fig.savefig(args.output, bbox_inches="tight", transparent=True)
+    if fig is not None:
+        fig.savefig(args.output, bbox_inches="tight", transparent=True)
