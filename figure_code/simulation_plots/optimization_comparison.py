@@ -170,7 +170,7 @@ def open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_er
 
     return fig
 
-N = 2
+N = 4
 
 from gould_2026.save_to_cache import save_to_cache
 
@@ -284,7 +284,7 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
     return fig, [], [test_result_file]
 
-def cross_method_target_tests():
+def cross_method_target_tests(closed=False):
     stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
 
     l_df = make_table_over_target_type(n_runs=N, stim_direction_types=stim_direction_types)
@@ -295,7 +295,6 @@ def cross_method_target_tests():
         metric_name = 'angles(s_obs,v)'
         method1 = OptimizationMethod.JAXOPT
         method2 = OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED
-        closed = False
 
         target_slice = l_df['display_stim_direction_type'] == target
         closed_slice = l_df['closed'] == closed
@@ -511,7 +510,7 @@ if __name__ == '__main__':
                 with args.output.with_stem(args.output.stem +f'_extra_{i}').with_suffix('.txt').open('w') as f:
                     print(extra_text.getvalue(), file=f)
         case 'cross_method_target_tests':
-            fig, test_output = cross_method_target_tests()
+            fig, test_output = cross_method_target_tests(closed=args.closed_loop)
             with open(args.output.with_suffix('.txt'), 'w') as f:
                 f.write(test_output.getvalue())
         case 'optim_open_vs_closed':

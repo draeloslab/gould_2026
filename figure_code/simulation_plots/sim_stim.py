@@ -33,7 +33,8 @@ def make_srs(data, rng, to_run, n_runs=1, show_tqdm=False, overrides=None):
             sub_rng = copy.deepcopy(rng)
             srs[key] = []
             for _ in range(n_runs):
-                srs[key].append(make_sr(input_array=data, rng=sub_rng, **val))
+                sub_rng, inner_sub_rng = sub_rng.spawn(2)
+                srs[key].append(make_sr(input_array=data, rng=inner_sub_rng, **val))
                 pbar.update(1)
 
     return srs
