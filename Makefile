@@ -9,8 +9,11 @@ all: $(TARGETS)
 	@echo 'open output/reports/coverage-html/index.html 2>/dev/null'
 
 
-COMMAND := coverage run --parallel-mode
-PAPERMILL_COMMAND := coverage run --parallel-mode -m papermill
+# COMMAND := /home/jgould/miniconda3/envs/gould_2026/bin/coverage run --parallel-mode
+# PAPERMILL_COMMAND := /home/jgould/miniconda3/envs/gould_2026/bin/coverage run --parallel-mode -m papermill
+COMMAND := python
+PAPERMILL_COMMAND := python -m papermill
+
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
 
@@ -56,6 +59,8 @@ output/compare_opt_by_target_closed_unconstrained.svg:
 output/cross_method_target_tests.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot cross_method_target_tests
 
+output/cross_method_target_tests_closed.svg:
+	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot cross_method_target_tests --closed-loop
 
 
 output/starburst_constrained.svg:
