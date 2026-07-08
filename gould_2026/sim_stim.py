@@ -1,5 +1,6 @@
 import copy
 from collections import deque
+from enum import Enum
 from types import SimpleNamespace
 import functools
 from itertools import cycle, chain
@@ -83,28 +84,42 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
     return equivalent_projection_matrix
 
 
+class StimDirectionType(Enum):
+    FIRST = 'first'
+    FIRST2 = 'first2'
+    COL = 'col'
+    RANDOM = 'random'
+    RANDOM_POSITIVE = 'random+'
+    RANDOM_FEASIBLE = 'random_feasible'
+    ONES = 'ones'
+    NEG_ONES = '-ones'
+
+
 def desired_stim_direction(equivalent_projection_matrix, stim_direction_type, rng, max_l0_norm):  # TODO: use built-in rng
     numpy = np
-    if stim_direction_type == 'first':
+    if isinstance(stim_direction_type, str):
+        stim_direction_type = StimDirectionType(stim_direction_type)
+        warnings.warn(f"stim_direction_type should be a StimDirectionType enum, not a string. Converting {stim_direction_type} to StimDirectionType.")
+    if stim_direction_type == StimDirectionType.FIRST:
         desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
         desired_stim[0] = 1
-    elif stim_direction_type == 'first2':
+    elif stim_direction_type == StimDirectionType.FIRST2:
         desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 2))
         desired_stim[0] = 1
         desired_stim[1] = 1
-    elif stim_direction_type == 'col':
+    elif stim_direction_type == StimDirectionType.COL:
         desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
         desired_stim[rng.choice(equivalent_projection_matrix.shape[1]), 0] = 1
-    elif stim_direction_type == 'random':
+    elif stim_direction_type == StimDirectionType.RANDOM:
         desired_stim = rng.normal(size=(equivalent_projection_matrix.shape[1], 1))
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
-    elif stim_direction_type == 'random+':
+    elif stim_direction_type == StimDirectionType.RANDOM_POSITIVE:
         desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
         desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
         desired_stim_high_d = numpy.abs(desired_stim_high_d)
         desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
-    elif stim_direction_type == 'random_feasible':
+    elif stim_direction_type == StimDirectionType.RANDOM_FEASIBLE:
         desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
         desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
         desired_stim_high_d = numpy.abs(desired_stim_high_d).flatten()
@@ -113,16 +128,16 @@ def desired_stim_direction(equivalent_projection_matrix, stim_direction_type, rn
         desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
         desired_stim = desired_stim.reshape([-1,1])
-    elif stim_direction_type == 'ones':
+    elif stim_direction_type == StimDirectionType.ONES:
         desired_stim_high_d = numpy.ones((equivalent_projection_matrix.shape[0], 1))
         desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
-    elif stim_direction_type == '-ones':
+    elif stim_direction_type == StimDirectionType.NEG_ONES:
         desired_stim_high_d = -numpy.ones((equivalent_projection_matrix.shape[0], 1))
         desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
     else:
-        raise ValueError()
+        raise ValueError(stim_direction_type)
     return desired_stim
 
 
@@ -154,7 +169,7 @@ def run_sim_stim(
         true_S='identity',
         stim_timing_method='random',
         n_identity_prior=10,
-        stim_direction_type='first',
+        stim_direction_type=StimDirectionType.FIRST,
         initial_nostim_period=5,
         stim_reg_maxlen=500,
         smoothing_tau=None,
