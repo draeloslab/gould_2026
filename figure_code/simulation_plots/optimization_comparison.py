@@ -170,7 +170,6 @@ def open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_er
 
     return fig
 
-N = 4
 
 from gould_2026.save_to_cache import save_to_cache
 
@@ -210,10 +209,10 @@ def make_table_over_target_type(n_runs, stim_direction_types):
     return l_df
 
 
-def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.JAXOPT):
+def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.JAXOPT, n_runs=10):
     stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
 
-    l_df = make_table_over_target_type(n_runs=N, stim_direction_types=stim_direction_types)
+    l_df = make_table_over_target_type(n_runs=n_runs, stim_direction_types=stim_direction_types)
 
     order = ('Q_0', 'negative', 'dense', 'random', 'feasible')
     l_df.sort_values(by='display_stim_direction_type', inplace=True, key=lambda x: x.apply(order.index))
@@ -284,10 +283,10 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
     return fig, [], [test_result_file]
 
-def cross_method_target_tests(closed=False):
+def cross_method_target_tests(closed=False, n_runs=10):
     stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
 
-    l_df = make_table_over_target_type(n_runs=N, stim_direction_types=stim_direction_types)
+    l_df = make_table_over_target_type(n_runs=n_runs, stim_direction_types=stim_direction_types)
 
     test_result_file = io.StringIO()
 
@@ -321,7 +320,7 @@ def cross_method_target_tests(closed=False):
 
 
 def plot_optim_open_vs_closed(args):
-    def _f(n_runs=N, args_dataset=args.dataset, args_type_of_dim_red=args.type_of_dim_red, args_type_of_autoreg=args.type_of_autoreg):
+    def _f(n_runs=args.n_runs, args_dataset=args.dataset, args_type_of_dim_red=args.type_of_dim_red, args_type_of_autoreg=args.type_of_autoreg):
         if args_dataset == 'odoherty21':
             data = Odoherty21Dataset().neural_data
         elif args_dataset == 'zong22':
@@ -343,10 +342,9 @@ def plot_optim_open_vs_closed(args):
     from gould_2026.save_to_cache import save_to_cache
     f = save_to_cache('optim_open_vs_closed', location='/mnt/data/gould_2026_cache/')(_f)
 
-    srs = f(n_runs=1, _recalculate_cache_value=True)
+    srs = f(n_runs=args.n_runs)
 
-    proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(
-        extract_metrics(srs, preq_cutoff=None))
+    proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(extract_metrics(srs, preq_cutoff=None))
     fig = open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_errors, show_individuals=True, legend=True)
     fig.axes[0].set_title(f'$s_{{\\text{{obs}}}}$ along $v$, {args.dataset} {args.type_of_dim_red} {args.type_of_autoreg}')
  
@@ -357,38 +355,6 @@ def plot_optim_open_vs_closed(args):
     l_df['angle(s_obs,v)'] = l_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
     l_df['s_obs along v'] = l_df.l.apply(lambda l: proportion_in_space(l['v'], l['observed_s_hat']))
 
-
-    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='angle(s_obs,v)', ax=axs[0,0], density_norm='width',inner_kws = violinplot_inner_kws) #  density_norm='width',
-    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='s_obs along v', ax=axs[0,1], density_norm='width',inner_kws = violinplot_inner_kws)
-
-    fig3, axs = plt.subplots(figsize=(10, 8), squeeze=False, layout='constrained')
-    errors = []
-    for k, v in srs.items():
-        errors.append([])
-        for sr in v:
-            e = ArrayWithTime.from_list(sr.log['pred_error'],squeeze_type='to_2d')
-            errors[-1].append(ArrayWithTime(np.linalg.norm(e, axis=1), e.t))
-
-
-
-    ax: plt.Axes = axs[0,0]
-    for i, (k, es) in enumerate(zip(srs.keys(), errors)):
-        for j, e in enumerate(es):
-            ax.plot(e.t, e, color=f'C{i}', alpha=0.1, )
-
-    for i, (k, es) in enumerate(zip(srs.keys(), errors)):
-        trendline = np.mean(es, axis=0)
-        line_last_half = trendline[trendline.size//2:]
-        line_info = dict(dataset=args.dataset, type_of_dim_red=args.type_of_dim_red, type_of_autoreg=args.type_of_autoreg, condition=k, metric='1step_pred', mean=line_last_half.mean(), std=line_last_half.std())
-        add_info_to_json(line_info)
-        ax.plot(e.t, trendline, color=f'C{i}', lw=1.5, label=f'{k} {line_info["mean"]:.2f} +/- {line_info["std"]:.2f}')
-
-    ax.set_title(f'{args.dataset} {args.type_of_dim_red} {args.type_of_autoreg} 1 step pred error')
-    ax.legend()
-
-    fig4, axs4 = plt.subplots(figsize=(8, 8), squeeze=False, layout='constrained')
-    l_df['n_opt_iterations'] = l_df.l.apply(lambda d: len(d['intermediate_xs']) if 'intermediate_xs' in d else np.nan)
-    sns.stripplot(data=l_df, x='sr_key', y='n_opt_iterations', ax=axs4[0,0])
 
     fig5, axs5 = plt.subplots(figsize=(5, 5), nrows=2, ncols=2, sharex=True, sharey=True, squeeze=False, layout='constrained')
 
@@ -419,10 +385,26 @@ def plot_optim_open_vs_closed(args):
         ax.set_ylabel('Norm of s')
 
 
+    fig2, ax2 = plt.subplots()
+    r_slice = l_df['r'] >= 0
+    # r_slice = l_df['r'] >= 5
+    pivot = l_df[r_slice].pivot(index=['sr_i', 'l_i'], columns=['sr_key'], values=['theta', 'r']).dropna()
+    sns.scatterplot(data=pivot, x=('r', 'open flip'), y=('r', 'closed flip'), ax=ax2)
 
-    return fig, [fig2, fig3, fig4, fig5], []
+    a = pivot[('theta', 'open flip')]
+    b = pivot[('theta', 'closed flip')]
+    test_result = scipy.stats.wilcoxon(a, b)
 
-def plot_optim_open_vs_closed_toy():
+    fig1, ax1 = plt.subplots()
+    sub_df = l_df[l_df['sr_key'].isin(['open flip', 'closed flip']) & r_slice]
+    sns.stripplot(sub_df, x='sr_key', y='theta', ax=ax1)
+    ax1.set_title(f'Wilcoxon test result: p={test_result.pvalue} {a.median() - b.median()} {a.mean() - b.mean()}')
+
+
+
+    return fig5, [fig2, fig1], []
+
+def plot_optim_open_vs_closed_toy(n_runs=10):
     def f():
         n_revolutions = 80
         obs_d = 130
@@ -430,14 +412,14 @@ def plot_optim_open_vs_closed_toy():
         rng = np.random.default_rng(4)
 
         all_srs = []
-        for _ in range(N):
+        for _ in range(n_runs):
             lds = LDS.circular_lds(rng=rng, obs_d=obs_d)
             _, data, _ = lds.simulate(int(lds.transitions_per_rotation * n_revolutions), rng=rng, initial_state=np.array([20, 0]))
             t = np.arange(data.shape[0]) * 1 / lds.transitions_per_rotation
             data = ArrayWithTime(data, t)
 
             to_run, _ = get_sim_stim_preset(comparison_preset='optim_open_vs_closed_toy')
-            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=1, show_tqdm=True, overrides=dict(last_dim_red=args.type_of_dim_red))
+            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args.type_of_dim_red))
             all_srs.append(srs)
 
         srs = {k: [sub_srs[k][0] for sub_srs in all_srs] for k in srs.keys()}
@@ -468,6 +450,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output", type=pathlib.Path, required=True)
     parser.add_argument( "--type-of-plot", type=str, required=True)
+    parser.add_argument( "--n-runs", type=int, required=True, default=10)
     parser.add_argument( "--type-of-dim-red", type=str, required=False)
     parser.add_argument( "--type-of-autoreg", type=str, required=False, default='kf')
     parser.add_argument( "--dataset", type=str, required=False, default='Odoherty21')
@@ -483,7 +466,7 @@ if __name__ == '__main__':
             data = d.neural_data
 
             to_run, _ = get_sim_stim_preset(comparison_preset='optim_col_vs_rand')
-            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=N, show_tqdm=True)
+            srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=args.n_runs, show_tqdm=True)
 
 
             proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(extract_metrics(srs, preq_cutoff=50))
@@ -503,14 +486,14 @@ if __name__ == '__main__':
 
 
         case 'compare_opt_by_target':
-            fig, extra_figs, text_files = compare_opt_by_target(closed=args.closed_loop, optimization_method=args.optimization_method)
+            fig, extra_figs, text_files = compare_opt_by_target(closed=args.closed_loop, optimization_method=args.optimization_method, n_runs=args.n_runs)
             for i, extra_fig in enumerate(extra_figs):
                 extra_fig.savefig(args.output.with_stem(args.output.stem +f'_extra_{i}'), bbox_inches="tight", transparent=True)
             for i, extra_text in enumerate(text_files):
                 with args.output.with_stem(args.output.stem +f'_extra_{i}').with_suffix('.txt').open('w') as f:
                     print(extra_text.getvalue(), file=f)
         case 'cross_method_target_tests':
-            fig, test_output = cross_method_target_tests(closed=args.closed_loop)
+            fig, test_output = cross_method_target_tests(closed=args.closed_loop, n_runs=args.n_runs)
             with open(args.output.with_suffix('.txt'), 'w') as f:
                 f.write(test_output.getvalue())
         case 'optim_open_vs_closed':
@@ -520,7 +503,7 @@ if __name__ == '__main__':
                 extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
 
         case 'optim_open_vs_closed_toy':
-            fig, extra_figs = plot_optim_open_vs_closed_toy()
+            fig, extra_figs = plot_optim_open_vs_closed_toy(n_runs=args.n_runs)
             for i, extra_fig in enumerate(extra_figs):
                 extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
         case _:
