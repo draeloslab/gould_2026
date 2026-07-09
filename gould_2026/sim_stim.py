@@ -1,10 +1,7 @@
-import copy
 from collections import deque
 from enum import Enum
 from types import SimpleNamespace
-import functools
-from itertools import cycle, chain
-import jax
+from itertools import cycle
 import warnings
 import time
 
@@ -23,8 +20,28 @@ from .stim_designer import StimDesigner
 from .save_to_cache import save_to_cache
 
 
+class StimResponseType(str, Enum):
+    IDENTITY = 'identity'
+    FLIP = 'flip'
+    HIGH_D_PERMUTED = 'high_d_permuted'
+
+
+class StimDirectionType(str, Enum):
+    FIRST = 'first'
+    FIRST2 = 'first2'
+    COL = 'col'
+    RANDOM = 'random'
+    RANDOM_POSITIVE = 'random+'
+    RANDOM_FEASIBLE = 'random_feasible'
+    ONES = 'ones'
+    NEG_ONES = '-ones'
+
+
 class SimulatedStimAdder:
-    def __init__(self, *, true_S='identity', static_S_seed=0, decay=.8, stim_time_delay=0):
+    def __init__(self, *, true_S=StimResponseType.IDENTITY, static_S_seed=0, decay=.8, stim_time_delay=0):
+        if isinstance(true_S, str):
+            true_S = StimResponseType(true_S)
+            warnings.warn(f"true_S should be a TrueSMap enum, not a string. Converting to TrueSMap.")
         self.true_S = true_S
         self.static_S_seed = static_S_seed
 
@@ -45,9 +62,9 @@ class SimulatedStimAdder:
         return data
 
     def true_stim_result(self, instantaneous_stim, equivalent_projection_matrix=None):
-        if self.true_S == 'identity':
+        if self.true_S == StimResponseType.IDENTITY:
             transformed_instantaneous_stim = instantaneous_stim
-        elif self.true_S == 'flip':
+        elif self.true_S == StimResponseType.FLIP:
             if equivalent_projection_matrix is not None:
                 in_space_comp = equivalent_projection_matrix.T @ instantaneous_stim
                 out_of_space_comp = instantaneous_stim - equivalent_projection_matrix @ in_space_comp
@@ -55,7 +72,7 @@ class SimulatedStimAdder:
             else:
                 assert (instantaneous_stim == 0).all()
                 transformed_instantaneous_stim = instantaneous_stim
-        elif self.true_S == 'high_d_permuted':
+        elif self.true_S == StimResponseType.HIGH_D_PERMUTED:
             transformed_instantaneous_stim = np.random.default_rng(self.static_S_seed).permuted(instantaneous_stim)
         else:
             raise ValueError(self.true_S)
@@ -166,7 +183,7 @@ def run_sim_stim(
         optimization_method='jaxopt',
         u_to_s_model_type='identity',
         design_type=None,
-        true_S='identity',
+        true_S=StimResponseType.IDENTITY,
         stim_timing_method='random',
         n_identity_prior=10,
         stim_direction_type=StimDirectionType.FIRST,
@@ -250,7 +267,7 @@ def run_sim_stim(
     )
 
     beh_sim_stim_adder = SimulatedStimAdder(
-        true_S='identity',
+        true_S=StimResponseType.IDENTITY,
         static_S_seed=static_S_seed,
         stim_time_delay=stim_time_delay,
         decay=beh_decay_rate
