@@ -1,5 +1,6 @@
 from collections import deque
 from enum import Enum
+import functools
 from types import SimpleNamespace
 from itertools import cycle
 import warnings
@@ -37,14 +38,57 @@ class StimDirectionType(str, Enum):
     NEG_ONES = '-ones'
 
 
-class SimulatedStimAdder:
-    def __init__(self, *, true_S=StimResponseType.IDENTITY, static_S_seed=0, decay=.8, stim_time_delay=0):
+class SimulatedStimResponseCalculator:
+    """Calculates the ground truth response to stimulations in the simulation."""
+    def __init__(self, *, rng, true_S=StimResponseType.IDENTITY):
         if isinstance(true_S, str):
             true_S = StimResponseType(true_S)
-            warnings.warn(f"true_S should be a TrueSMap enum, not a string. Converting to TrueSMap.")
+            warnings.warn(f"true_S should be a StimResponseType enum, not a string. Converting to StimResponseType.")
         self.true_S = true_S
-        self.static_S_seed = static_S_seed
+        self.rng = rng
+        self.high_d_permutation = None
 
+
+    def true_stim_result(self, instantaneous_stim, equivalent_projection_matrix=None):
+        if equivalent_projection_matrix is None:
+            assert (instantaneous_stim == 0).all()
+            return instantaneous_stim
+
+        if self.true_S in {StimResponseType.IDENTITY, StimResponseType.FLIP, StimResponseType.HIGH_D_PERMUTED}:
+            full_d_transformation_matrix = self.response_alteration_matrix(equivalent_projection_matrix)
+            transformed_instantaneous_stim = full_d_transformation_matrix @ instantaneous_stim
+        else:
+            raise ValueError(self.true_S)
+
+        return transformed_instantaneous_stim
+
+
+    def response_alteration_matrix(self, equivalent_projection_matrix):
+        if equivalent_projection_matrix is None:
+            return None
+        if self.high_d_permutation is None:
+            self.high_d_permutation = self.rng.permutation(equivalent_projection_matrix.shape[0])
+
+        if self.true_S == StimResponseType.IDENTITY:
+            transform_matrix = np.eye(equivalent_projection_matrix.shape[0])
+        elif self.true_S == StimResponseType.FLIP:
+            # TODO: it feels weird to have the ground truth response depend on the learned Q
+            flip_matrix = np.eye(equivalent_projection_matrix.shape[1])[::-1]
+            transform_matrix = equivalent_projection_matrix @ flip_matrix @ equivalent_projection_matrix.T + np.eye(equivalent_projection_matrix.shape[0]) - equivalent_projection_matrix @ equivalent_projection_matrix.T
+        elif self.true_S == StimResponseType.HIGH_D_PERMUTED:
+            transform_matrix = np.eye(equivalent_projection_matrix.shape[0])
+            transform_matrix = transform_matrix[:, self.high_d_permutation]
+        else:
+            raise ValueError(self.true_S)
+
+        return transform_matrix
+
+    def true_stim_result_in_latent_space(self, instantaneous_stim, equivalent_projection_matrix):
+        return equivalent_projection_matrix.T @ self.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
+
+
+class SimulatedStimAdder:
+    def __init__(self, *, decay=.8, stim_time_delay=0):
         self.alpha = decay
 
         self.to_add = 0
@@ -60,24 +104,6 @@ class SimulatedStimAdder:
         data = data + self.to_add
         self.to_add = self.to_add * self.alpha
         return data
-
-    def true_stim_result(self, instantaneous_stim, equivalent_projection_matrix=None):
-        if self.true_S == StimResponseType.IDENTITY:
-            transformed_instantaneous_stim = instantaneous_stim
-        elif self.true_S == StimResponseType.FLIP:
-            if equivalent_projection_matrix is not None:
-                in_space_comp = equivalent_projection_matrix.T @ instantaneous_stim
-                out_of_space_comp = instantaneous_stim - equivalent_projection_matrix @ in_space_comp
-                transformed_instantaneous_stim = equivalent_projection_matrix @ in_space_comp[::-1] + out_of_space_comp
-            else:
-                assert (instantaneous_stim == 0).all()
-                transformed_instantaneous_stim = instantaneous_stim
-        elif self.true_S == StimResponseType.HIGH_D_PERMUTED:
-            transformed_instantaneous_stim = np.random.default_rng(self.static_S_seed).permuted(instantaneous_stim)
-        else:
-            raise ValueError(self.true_S)
-
-        return transformed_instantaneous_stim
 
 
 def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
@@ -101,57 +127,46 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
     return equivalent_projection_matrix
 
 
-class StimDirectionType(Enum):
-    FIRST = 'first'
-    FIRST2 = 'first2'
-    COL = 'col'
-    RANDOM = 'random'
-    RANDOM_POSITIVE = 'random+'
-    RANDOM_FEASIBLE = 'random_feasible'
-    ONES = 'ones'
-    NEG_ONES = '-ones'
-
-
-def desired_stim_direction(equivalent_projection_matrix, stim_direction_type, rng, max_l0_norm):  # TODO: use built-in rng
+def desired_stim_direction(latent_d, full_d, u_to_latent_s, stim_direction_type, rng, max_l0_norm):
     numpy = np
     if isinstance(stim_direction_type, str):
         stim_direction_type = StimDirectionType(stim_direction_type)
         warnings.warn(f"stim_direction_type should be a StimDirectionType enum, not a string. Converting {stim_direction_type} to StimDirectionType.")
     if stim_direction_type == StimDirectionType.FIRST:
-        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
+        desired_stim = numpy.zeros((latent_d, 1))
         desired_stim[0] = 1
     elif stim_direction_type == StimDirectionType.FIRST2:
-        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 2))
+        desired_stim = numpy.zeros((latent_d, 2))
         desired_stim[0] = 1
         desired_stim[1] = 1
     elif stim_direction_type == StimDirectionType.COL:
-        desired_stim = numpy.zeros((equivalent_projection_matrix.shape[1], 1))
-        desired_stim[rng.choice(equivalent_projection_matrix.shape[1]), 0] = 1
+        desired_stim = numpy.zeros((latent_d, 1))
+        desired_stim[rng.choice(latent_d), 0] = 1
     elif stim_direction_type == StimDirectionType.RANDOM:
-        desired_stim = rng.normal(size=(equivalent_projection_matrix.shape[1], 1))
+        desired_stim = rng.normal(size=(latent_d, 1))
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
     elif stim_direction_type == StimDirectionType.RANDOM_POSITIVE:
-        desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
+        desired_stim_high_d = rng.normal(size=(full_d, 1))
         desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
         desired_stim_high_d = numpy.abs(desired_stim_high_d)
-        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = u_to_latent_s(desired_stim_high_d)
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
     elif stim_direction_type == StimDirectionType.RANDOM_FEASIBLE:
-        desired_stim_high_d = rng.normal(size=(equivalent_projection_matrix.shape[0], 1))
+        desired_stim_high_d = rng.normal(size=(full_d, 1))
         desired_stim_high_d = desired_stim_high_d / numpy.linalg.norm(desired_stim_high_d)
         desired_stim_high_d = numpy.abs(desired_stim_high_d).flatten()
         while (desired_stim_high_d > 0).sum() > max_l0_norm:
             desired_stim_high_d[rng.choice(len(desired_stim_high_d))] = 0
-        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim = u_to_latent_s(desired_stim_high_d)
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
         desired_stim = desired_stim.reshape([-1,1])
     elif stim_direction_type == StimDirectionType.ONES:
-        desired_stim_high_d = numpy.ones((equivalent_projection_matrix.shape[0], 1))
-        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim_high_d = numpy.ones((full_d, 1))
+        desired_stim = u_to_latent_s(desired_stim_high_d)
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
     elif stim_direction_type == StimDirectionType.NEG_ONES:
-        desired_stim_high_d = -numpy.ones((equivalent_projection_matrix.shape[0], 1))
-        desired_stim = equivalent_projection_matrix.T @ desired_stim_high_d
+        desired_stim_high_d = -numpy.ones((full_d, 1))
+        desired_stim = u_to_latent_s(desired_stim_high_d)
         desired_stim = desired_stim / numpy.linalg.norm(desired_stim)
     else:
         raise ValueError(stim_direction_type)
@@ -258,17 +273,16 @@ def run_sim_stim(
         n_random_initialization=n_identity_prior
     )
 
-    static_S_seed = other_rng.integers(2 ** 32)
-    sim_stim_adder = SimulatedStimAdder(
+    sim_stim_calculator = SimulatedStimResponseCalculator(
         true_S=true_S,
-        static_S_seed=static_S_seed,
+        rng=other_rng,
+    )
+    sim_stim_adder = SimulatedStimAdder(
         stim_time_delay=stim_time_delay,
         decay=decay_rate
     )
 
     beh_sim_stim_adder = SimulatedStimAdder(
-        true_S=StimResponseType.IDENTITY,
-        static_S_seed=static_S_seed,
         stim_time_delay=stim_time_delay,
         decay=beh_decay_rate
     )
@@ -318,7 +332,15 @@ def run_sim_stim(
 
                 equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
                 if stim_decision and equivalent_projection_matrix is not None:
-                    desired_stim = desired_stim_direction(equivalent_projection_matrix, stim_direction_type, other_rng, stim_designer.max_l0_norm)
+                    # use sim_stim_calculator.stim_response_matrix(equivalent_projection_matrix)[0] instead of equivalent_projection_matrix if you want to have the same solution for the permuted and non-permuted cases
+                    desired_stim = desired_stim_direction(
+                        latent_d=equivalent_projection_matrix.shape[1],
+                        full_d=equivalent_projection_matrix.shape[0],
+                        u_to_latent_s=functools.partial(sim_stim_calculator.true_stim_result_in_latent_space, equivalent_projection_matrix=equivalent_projection_matrix),
+                        stim_direction_type=stim_direction_type,
+                        rng=other_rng,
+                        max_l0_norm=stim_designer.max_l0_norm
+                    )
                     designed_stim = stim_designer.sim_stim_design_stim(sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
                     instantaneous_stim = designed_stim * stim_magnitude
                 else:
@@ -327,7 +349,7 @@ def run_sim_stim(
 
                 stims.append(ArrayWithTime(instantaneous_stim, data.t))
 
-                true_stim_result = sim_stim_adder.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
+                true_stim_result = sim_stim_calculator.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
 
                 sim_stim_adder.register_stim(true_stim_result)
 
