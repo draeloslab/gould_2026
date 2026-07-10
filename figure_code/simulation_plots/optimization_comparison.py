@@ -408,9 +408,32 @@ def plot_optim_open_vs_closed(args):
     sns.stripplot(sub_df, x='sr_key', y='theta', ax=ax1)
     ax1.set_title(f'Wilcoxon test result: p={test_result.pvalue} {a.median() - b.median()} {a.mean() - b.mean()}')
 
+    fig3, ax3 = plt.subplots()
+    from scipy.spatial.distance import pdist, squareform
+    l_df['u'] = l_df['l'].apply(lambda x: x['u'])
+    l_df['v'] = l_df['l'].apply(lambda x: x['v'])
 
 
-    return fig5, [fig2, fig1], []
+    sub_df = l_df.sort_values(['sr_key', 'sr_i', 'l_i'])
+    to_compare = np.squeeze(np.stack(sub_df['v']))
+    distance_matrix = squareform(pdist(to_compare))
+    ax3.matshow(distance_matrix)
+    ax3.set_title('v vs v')
+
+    block_sizes = sub_df.groupby('sr_key', sort=False).size()
+    block_centers = block_sizes.cumsum() - (block_sizes / 2) - 0.5
+    ax3.set_xticks(block_centers.to_numpy())
+    ax3.set_xticklabels(block_sizes.index.to_list(), rotation=45, ha='right')
+
+    sr_i_values = sub_df['sr_i'].to_numpy()
+    sr_i_change_boundaries = np.flatnonzero(sr_i_values[1:] != sr_i_values[:-1]) + 1
+    for boundary in sr_i_change_boundaries:
+        line_pos = boundary - 0.5
+        ax3.axvline(line_pos, color='white', linewidth=0.5)
+        ax3.axhline(line_pos, color='white', linewidth=0.5)
+
+
+    return fig5, [fig2, fig1, fig3], []
 
 def plot_optim_open_vs_closed_toy(n_runs=10):
     def f():
