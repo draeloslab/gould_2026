@@ -60,15 +60,6 @@ def get_sim_stim_preset(comparison_preset):
                 'random columns of Q': common | dict(stim_direction_type='col'),
                 'random unit vector': common | dict(stim_direction_type='random'),
             }
-
-        case 'optim_open_vs_closed':
-            common = dict(stim_rate = 1/2, exit_time = np.inf, prosvd_k = 10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type='random_feasible',)
-            to_run = {
-                'open id': common | dict(u_to_s_model_type='identity', true_S='identity'),
-                'closed id': common | dict(u_to_s_model_type='kernel_regressed', true_S='identity'),
-                'open flip': common | dict(u_to_s_model_type='identity', true_S='flip'),
-                'closed flip': common | dict(u_to_s_model_type='kernel_regressed', true_S='flip',),
-            }
         case 'optim_open_vs_closed_toy':
             common = dict( stim_rate = 3, exit_time = np.inf, prosvd_k = 2, optimization_method=OptimizationMethod.JAXOPT,stim_direction_type='first',)
             to_run = {

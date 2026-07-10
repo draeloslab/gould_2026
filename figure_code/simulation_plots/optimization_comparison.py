@@ -3,6 +3,7 @@ import numpy as np
 import json
 import seaborn as sns
 from sim_stim import make_srs, get_sim_stim_preset
+from gould_2026.sim_stim import StimDirectionType, StimResponseType
 from gould_2026.estimator import ArrayWithTime
 from gould_2026.datasets import Zong22Dataset, Odoherty21Dataset, LDS
 from gould_2026.prediction.vjf import VJF
@@ -193,7 +194,7 @@ def make_table_over_target_type(n_runs, stim_direction_types):
                 OptimizationMethod.JAXOPT_UNCONSTRAINED,
                 OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS,
             ]:
-                to_run[f'{optimization_method} {stim_direction_type} {closed}'] = inner_common | dict(true_S='identity', optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type)
+                to_run[f'{optimization_method} {stim_direction_type} {closed}'] = inner_common | dict(true_S=StimResponseType.IDENTITY, optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type)
     srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
     l_df = srs_to_l_df(srs)
 
@@ -335,7 +336,14 @@ def plot_optim_open_vs_closed(args):
         elif args_type_of_autoreg == 'vjf':
             autoreg = VJF
 
-        to_run, _ = get_sim_stim_preset(comparison_preset='optim_open_vs_closed')
+        common = dict(stim_rate=1 / 2, exit_time=np.inf, prosvd_k=10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type=StimDirectionType.RANDOM_FEASIBLE)
+        to_run = {
+            'open id': common | dict(u_to_s_model_type='identity', true_S=StimResponseType.IDENTITY),
+            'closed id': common | dict(u_to_s_model_type='kernel_regressed', true_S=StimResponseType.IDENTITY),
+            'open flip': common | dict(u_to_s_model_type='identity', true_S=StimResponseType.FLIP),
+            'closed flip': common | dict(u_to_s_model_type='kernel_regressed', true_S=StimResponseType.FLIP),
+        }
+
         srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args_type_of_dim_red, autoreg=autoreg))
         return srs
 
