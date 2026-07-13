@@ -210,6 +210,7 @@ def run_sim_stim(
         show_tqdm=False,
         behavioral_data=ArrayWithTime(np.zeros((2,1)), [np.inf, np.inf]) * np.nan,
         beh_decay_rate=.8,
+        v_design_use_full_u_s_map=False,
 ):
     _init_time = time.perf_counter()
     timing_log = SimpleNamespace()
@@ -332,11 +333,14 @@ def run_sim_stim(
 
                 equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
                 if stim_decision and equivalent_projection_matrix is not None:
-                    # use sim_stim_calculator.stim_response_matrix(equivalent_projection_matrix)[0] instead of equivalent_projection_matrix if you want to have the same solution for the permuted and non-permuted cases
+                    if v_design_use_full_u_s_map:
+                        u_to_latent_s = functools.partial(sim_stim_calculator.true_stim_result_in_latent_space, equivalent_projection_matrix=equivalent_projection_matrix)
+                    else:
+                        u_to_latent_s = lambda x: equivalent_projection_matrix.T @ x
                     desired_stim = desired_stim_direction(
                         latent_d=equivalent_projection_matrix.shape[1],
                         full_d=equivalent_projection_matrix.shape[0],
-                        u_to_latent_s=functools.partial(sim_stim_calculator.true_stim_result_in_latent_space, equivalent_projection_matrix=equivalent_projection_matrix),
+                        u_to_latent_s=u_to_latent_s,
                         stim_direction_type=stim_direction_type,
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
