@@ -32,7 +32,8 @@ class StimRegressorWithExtraLogging(StimRegressor):
                 key = 's_hat_error'
                 if key not in self.log:
                     self.log[key] = []
-                self.log[key].append(ArrayWithTime.from_transformed_data(self.s_hat_error_function(self), data))
+                err = ArrayWithTime.from_transformed_data(np.squeeze(self.s_hat_error_function(self)), data)
+                self.log[key].append(err)
 
     def step(self, data, stream=0, return_output_stream=False):
         self.pre_log(data, stream)
@@ -119,7 +120,7 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200):
         for point in test_points:
             e = self.stim_reg.predict(np.hstack([point, np.array([1])])) - true_S(point)
             s_hat_errors.append(e)
-        return np.linalg.norm(s_hat_errors, axis=1).mean()
+        return s_hat_errors
 
     return s_hat_error_function
 
@@ -187,7 +188,7 @@ def draw_curvy_surface(true_S=true_S, stim_locations=(), s_hat_observations=(), 
     ax2.xaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
     ax2.yaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
     ax2.zaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
-    return fig2, ax2, (cbar.mappable.norm. vmin,cbar.mappable.norm.vmax)
+    return fig2, ax2, (cbar.mappable.norm.vmin, cbar.mappable.norm.vmax)
 
 
 from learn_s_hat_plots import plot_onestep_pred_error_decreasing, make_table, plot_manifold_error
@@ -272,7 +273,9 @@ if __name__ == '__main__':
 
         case 'manifold-error':
             srs = make_srs(np.random.default_rng(2), n_runs=1, show_tqdm=False, add_s_hat_error_function=True)
-            fig = plot_manifold_error(srs)
+            fig, test_string = plot_manifold_error(srs)
+            with args.output.with_suffix('.txt').open('w') as fhan:
+                fhan.write(test_string.getvalue())
         case _:
             raise ValueError()
 

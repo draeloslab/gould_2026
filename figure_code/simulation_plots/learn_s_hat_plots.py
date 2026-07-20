@@ -1,6 +1,8 @@
 import numpy as np
 from gould_2026.estimator import ArrayWithTime
 import pandas as pd
+import scipy.stats
+from io import StringIO
 
 import matplotlib.pyplot as plt
 
@@ -94,17 +96,30 @@ def make_table(srs, time_slices, space_slices, make_slices_tensor, save_table=Fa
 def plot_manifold_error(srs, comparison_keys=('learning from stim', 'unaware of stim')):
     fig, ax = plt.subplots()
 
-    for k in comparison_keys:
+    shes = []
+    for i, k in enumerate(comparison_keys):
         for sr in srs[k]:
             she = ArrayWithTime.from_list(sr.log['s_hat_error'])
             stim_samples = sr.log['stim_intended_samples']
             she, _ = ArrayWithTime.align_indices(she, stim_samples)
-            ax.plot(she, label=k)
+            she = np.mean(she**2, axis=2)
+            ax.plot(she.mean(axis=1), label=k, color=f'C{i}')
+            shes.append(she)
+
 
     ax.set_xlim([0, 50])
     ax.set_xlabel('# of stimuli')
-    ax.set_ylabel(r'~$\mathbb{E}\Vert \hat S - S \Vert$')
+    ax.set_ylabel(r'~$\mathbb{E}\Vert \hat S - S \Vert^2$')
     ax.set_ylim(bottom=0)
     ax.legend()
 
-    return fig
+    shes = np.array(shes)
+    test_sample = 9
+    aware, unaware = shes[:, test_sample,]
+    test_result = scipy.stats.wilcoxon(unaware, aware)
+    test_string = StringIO()
+    test_string.write(f"'learning from stim' vs 'unaware of stim' at {test_sample = }\n")
+    test_string.write(f"{test_result = }\n")
+    test_string.write(f"Δ = {np.mean(unaware) - np.mean(aware):.3f} {np.mean(unaware)=:.3f} {np.mean(aware)=:.3f}\n")
+
+    return fig, test_string
