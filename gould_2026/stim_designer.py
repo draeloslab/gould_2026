@@ -363,7 +363,7 @@ class StimDesigner:
         else:
             raise ValueError()
 
-        self.log[-1]['stim_reg'] = copy.deepcopy(sr.stim_reg)
+        # self.log[-1]['stim_reg'] = copy.deepcopy(sr.stim_reg)
         self.log[-1]['time_of_stim'] = current_t
         self.log[-1]['equiv_proj_mat'] = equivalent_projection_matrix
 
