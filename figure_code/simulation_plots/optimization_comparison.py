@@ -1,5 +1,7 @@
-import numpy as np
+import jax
+jax.config.update('jax_platform_name', 'cpu')
 
+import numpy as np
 import json
 import seaborn as sns
 from sim_stim import make_srs, get_sim_stim_preset
@@ -7,6 +9,7 @@ from gould_2026.sim_stim import StimDirectionType, StimResponseType
 from gould_2026.estimator import ArrayWithTime
 from gould_2026.datasets import Zong22Dataset, Odoherty21Dataset, LDS
 from gould_2026.prediction.vjf import VJF
+from gould_2026.utils import angle_between
 from gould_2026.prediction.bubblewrap import Bubblewrap
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
 from matplotlib.path import Path
@@ -134,7 +137,10 @@ def unpack_metrics(metrics):
         return metrics
 
 
-def open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_errors, show_individuals=True, legend=False):
+def open_v_closed_plot(srs, show_individuals=True, legend=False):
+    proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(extract_metrics(srs, preq_cutoff=None))
+
+    # TODO: args is global here
     fig, axs = plt.subplots(ncols=2, nrows=1, squeeze=False, layout='constrained', figsize=(2*4, 1*4))
 
     ax: plt.Axes = axs[0,0]
@@ -156,12 +162,11 @@ def open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_er
     for i, (k, errors) in enumerate(zip(srs.keys(), preq_errors)):
         trendline = np.mean(errors, axis=0)
 
-        line_last_half = trendline[trendline.size//2:]
-        line_info = dict(dataset=args.dataset, type_of_dim_red=args.type_of_dim_red, type_of_autoreg=args.type_of_autoreg, condition=k, metric='s_hat', mean=line_last_half.mean(), std=line_last_half.std())
+        # line_last_half = trendline[trendline.size//2:]
+        # line_info = dict(dataset=args.dataset, type_of_dim_red=args.type_of_dim_red, type_of_autoreg=args.type_of_autoreg, condition=k, metric='s_hat', mean=line_last_half.mean(), std=line_last_half.std())
+        # add_info_to_json(line_info)
 
-        add_info_to_json(line_info)
-
-        ax.plot(trendline, color=f'C{i}', lw=1.5, label=f'{k} {line_info["mean"]:.2f} +/- {line_info["std"]:.2f}')
+        ax.plot(trendline, color=f'C{i}', lw=1.5)
     ax.set_title('$\\Vert \\hat s_{obs} - \\hat S_{i-1}(x_i, u_i, t_i) \\Vert$')
 
     if legend:
@@ -320,121 +325,6 @@ def cross_method_target_tests(closed=False, n_runs=10):
     return fig, test_result_file
 
 
-def plot_optim_open_vs_closed(args):
-    def _f(n_runs=args.n_runs, args_dataset=args.dataset, args_type_of_dim_red=args.type_of_dim_red, args_type_of_autoreg=args.type_of_autoreg):
-        if args_dataset == 'odoherty21':
-            data = Odoherty21Dataset().neural_data
-        elif args_dataset == 'zong22':
-            data = Zong22Dataset().neural_data
-        else:
-            raise ValueError()
-        
-        if args_type_of_autoreg == 'kf':
-            autoreg = StreamingKalmanFilter
-        elif args_type_of_autoreg == 'bw':
-            autoreg = Bubblewrap
-        elif args_type_of_autoreg == 'vjf':
-            autoreg = VJF
-
-        common = dict(stim_rate=1 / 2, exit_time=np.inf, prosvd_k=10, optimization_method=OptimizationMethod.JAXOPT, stim_direction_type=StimDirectionType.RANDOM_FEASIBLE)
-        to_run = {
-            'open id': common | dict(u_to_s_model_type='identity', true_S=StimResponseType.IDENTITY),
-            'closed id': common | dict(u_to_s_model_type='kernel_regressed', true_S=StimResponseType.IDENTITY),
-            'open flip': common | dict(u_to_s_model_type='identity', true_S=StimResponseType.FLIP),
-            'closed flip': common | dict(u_to_s_model_type='kernel_regressed', true_S=StimResponseType.FLIP),
-        }
-
-        srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True, overrides=dict(last_dim_red=args_type_of_dim_red, autoreg=autoreg))
-        return srs
-
-    from gould_2026.save_to_cache import save_to_cache
-    f = save_to_cache('optim_open_vs_closed', location='/mnt/data/gould_2026_cache/')(_f)
-
-    srs = f(n_runs=args.n_runs)
-
-    proportions, preq_errors, v_delta_errors, s_delta_errors, angles, mags_along, mags, alignment_with_old_v, v_mag_ratio = unpack_metrics(extract_metrics(srs, preq_cutoff=None))
-    fig = open_v_closed_plot(srs, proportions, preq_errors, v_delta_errors, s_delta_errors, show_individuals=True, legend=True)
-    fig.axes[0].set_title(f'$s_{{\\text{{obs}}}}$ along $v$, {args.dataset} {args.type_of_dim_red} {args.type_of_autoreg}')
- 
-    l_df = srs_to_l_df(srs)
-    fig2, axs = plt.subplots(ncols=2, squeeze=False, figsize=(10,4), layout='constrained')
-    l_df[['open_closed', 'true_s']] = l_df['sr_key'].str.split(' ', expand=True)
-
-    l_df['angle(s_obs,v)'] = l_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
-    l_df['s_obs along v'] = l_df.l.apply(lambda l: proportion_in_space(l['v'], l['observed_s_hat']))
-
-
-    fig5, axs5 = plt.subplots(figsize=(5, 5), nrows=2, ncols=2, sharex=True, sharey=True, squeeze=False, layout='constrained')
-
-    from gould_2026.utils import angle_between
-    l_df['theta'] = l_df['l'].apply(lambda l: angle_between(l['v'], l['observed_s_hat'], radians=False))
-    l_df['r'] = l_df['l'].apply(lambda l: np.linalg.norm(l['observed_s_hat']))
-    l_df['t'] = l_df['l'].apply(lambda l: l['time_of_stim'])
-
-    min_norm = 10
-    max_angle = 20
-
-    for k, ax in zip(l_df.sr_key.unique(), axs5.flatten()):
-        sub_df = l_df[l_df.sr_key == k]
-        sub_df = sub_df[sub_df.t > sub_df.t.median()]
-        ax.scatter(sub_df['theta'], sub_df['r'], s=1, label=k, color='k')
-        patch = plt.Rectangle(xy=(0,min_norm), width=max_angle, height=100, color='r', alpha=.1)
-        ax.add_patch(patch)
-        ax.set_xlim(xmin=0, xmax=180)
-        ax.text(0.99, 0.97, k + f"\n {((sub_df.theta < max_angle) & (sub_df.r > min_norm)).sum()} / {len(sub_df)}", transform=ax.transAxes, ha='right', va='top')
-
-        ax.set_ylim(0,45)
-        ax.axvline(90, linestyle='--', color='gray', alpha=0.5)
-
-    for ax in axs[-1,:]:
-        ax.set_xlabel('Angle between v and s (degrees)')
-
-    for ax in axs[:,0]:
-        ax.set_ylabel('Norm of s')
-
-
-    fig2, ax2 = plt.subplots()
-    r_slice = l_df['r'] >= 0
-    # r_slice = l_df['r'] >= 5
-    pivot = l_df[r_slice].pivot(index=['sr_i', 'l_i'], columns=['sr_key'], values=['theta', 'r']).dropna()
-    sns.scatterplot(data=pivot, x=('r', 'open flip'), y=('r', 'closed flip'), ax=ax2)
-
-    a = pivot[('theta', 'open flip')]
-    b = pivot[('theta', 'closed flip')]
-    test_result = scipy.stats.wilcoxon(a, b)
-
-    fig1, ax1 = plt.subplots()
-    sub_df = l_df[l_df['sr_key'].isin(['open flip', 'closed flip']) & r_slice]
-    sns.stripplot(sub_df, x='sr_key', y='theta', ax=ax1)
-    ax1.set_title(f'Wilcoxon test result: p={test_result.pvalue} {a.median() - b.median()} {a.mean() - b.mean()}')
-
-    fig3, ax3 = plt.subplots()
-    from scipy.spatial.distance import pdist, squareform
-    l_df['u'] = l_df['l'].apply(lambda x: x['u'])
-    l_df['v'] = l_df['l'].apply(lambda x: x['v'])
-
-
-    sub_df = l_df.sort_values(['sr_key', 'sr_i', 'l_i'])
-    to_compare = np.squeeze(np.stack(sub_df['v']))
-    distance_matrix = squareform(pdist(to_compare))
-    ax3.matshow(distance_matrix)
-    ax3.set_title('v vs v')
-
-    block_sizes = sub_df.groupby('sr_key', sort=False).size()
-    block_centers = block_sizes.cumsum() - (block_sizes / 2) - 0.5
-    ax3.set_xticks(block_centers.to_numpy())
-    ax3.set_xticklabels(block_sizes.index.to_list(), rotation=45, ha='right')
-
-    sr_i_values = sub_df['sr_i'].to_numpy()
-    sr_i_change_boundaries = np.flatnonzero(sr_i_values[1:] != sr_i_values[:-1]) + 1
-    for boundary in sr_i_change_boundaries:
-        line_pos = boundary - 0.5
-        ax3.axvline(line_pos, color='white', linewidth=0.5)
-        ax3.axhline(line_pos, color='white', linewidth=0.5)
-
-
-    return fig5, [fig2, fig1, fig3], []
-
 def plot_optim_open_vs_closed_toy(n_runs=10):
     def f():
         n_revolutions = 80
@@ -528,11 +418,7 @@ if __name__ == '__main__':
             with open(args.output.with_suffix('.txt'), 'w') as f:
                 f.write(test_output.getvalue())
         case 'optim_open_vs_closed':
-            fig, extra_figs, text_files = plot_optim_open_vs_closed(args)
-
-            for i, extra_fig in enumerate(extra_figs):
-                extra_fig.savefig(args.output.with_stem(args.output.stem + f'_extra_{i}'), bbox_inches="tight", transparent=True)
-
+            raise NotImplementedError('This functionality was moved to the open_vs_closed notebook.')
         case 'optim_open_vs_closed_toy':
             fig, extra_figs = plot_optim_open_vs_closed_toy(n_runs=args.n_runs)
             for i, extra_fig in enumerate(extra_figs):

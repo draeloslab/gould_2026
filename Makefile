@@ -14,7 +14,7 @@ all: $(TARGETS)
 COMMAND := python
 PAPERMILL_COMMAND := python -m papermill
 
-SIM_N_RUNS := 3
+SIM_N_RUNS := 25
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -123,8 +123,8 @@ output/draelos25_1step.svg:
 
 # fig:closed
 output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) -p output $@ -p type_of_dim_red prosvd -p type_of_autoreg kf -p dataset odoherty21 -p n_runs $(SIM_N_RUNS) figure_code/simulation_plots/open_vs_closed.ipynb /tmp/output.ipynb
 
 
 
