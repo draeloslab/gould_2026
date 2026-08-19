@@ -211,6 +211,8 @@ def run_sim_stim(
         behavioral_data=ArrayWithTime(np.zeros((2,1)), [np.inf, np.inf]) * np.nan,
         beh_decay_rate=.8,
         v_design_use_full_u_s_map=False,
+        delay_switch_time=None,
+        delay_switch_amount=0,
 ):
     _init_time = time.perf_counter()
     timing_log = SimpleNamespace()
@@ -262,6 +264,12 @@ def run_sim_stim(
         heed_stimuli=heed_stimuli,
         stim_delay=regressor_stim_delay,
     )
+    # NOTE: the old zong_stim.py pipeline overrode the default autoregressive residual-correction here with
+    # `sr.stim_autoreg = StimAutoReg(n_steps_to_consider=6)` (default is `n_steps_to_consider=0`, i.e. off).
+    # To restore that behavior, uncomment the next two lines (and `from .stim_regressor import StimAutoReg`),
+    # or add a `stim_autoreg_n_steps=0` parameter to this function and use it here.
+    # from .stim_regressor import StimAutoReg
+    # sr.stim_autoreg = StimAutoReg(n_steps_to_consider=6)
     stim_designer = StimDesigner(
         max_l0_norm=max_l0_norm,
         rng_seed=other_rng.integers(2 ** 32),
@@ -321,12 +329,20 @@ def run_sim_stim(
 
     timing_log.init_time = time.perf_counter() - timing_log.init_time
     timing_log.loop_time = time.perf_counter()
+    delay_switched = False
     with pbar:
         for data, stream in Pipeline().streaming_run_on([(input_array, 'neural_data'), (behavioral_data, 'behavioral_data')], return_output_stream=True):
             if stream == 'neural_data':
                 timing_log.in_sim_time.append(data.t)
                 timing_log.per_loop.append(time.perf_counter())
                 timing_log.stim_design.append(time.perf_counter())
+
+                # Simulates a change (partway through the run) in how many samples it takes for a stim to
+                # affect the recorded signal / be corrected for. Used e.g. by the zong_stim figure.
+                if delay_switch_time is not None and data.t > delay_switch_time and not delay_switched:
+                    sim_stim_adder.stim_delay_queue = deque([0] * delay_switch_amount)
+                    sr.stim_delay = sr.stim_delay + sr.dt * delay_switch_amount
+                    delay_switched = True
 
                 stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
                 decided_stims.append(ArrayWithTime(stim_decision, data.t))
@@ -360,6 +376,10 @@ def run_sim_stim(
                 high_d_without_stim.append(data)
                 pre_stim_data = data
                 data = sim_stim_adder.run_for_X(data)
+                # NOTE: the old zong_stim.py pipeline additionally smoothed the stim-injected data here via
+                # `ss_adder_p = Pipeline([sim_stim_adder, KernelSmoother(tau=1)])` and stepped that pipeline
+                # instead of calling `sim_stim_adder.run_for_X` directly. To restore, wrap `sim_stim_adder` in
+                # a `Pipeline([sim_stim_adder, KernelSmoother(tau=1)])` above and `.step(data, stream='X')` it here.
                 high_d_with_stim.append(data)
                 high_d_stims.append(data - pre_stim_data)
 

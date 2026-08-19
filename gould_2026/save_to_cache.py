@@ -9,6 +9,7 @@ import time
 import pathlib
 from abc import ABCMeta
 import xxhash
+import itertools
 from dataclasses import is_dataclass, asdict
 
 import numpy as np
@@ -34,6 +35,10 @@ class NumpyEncoder(json.JSONEncoder):
             return asdict(obj)
         elif isinstance(obj, ABCMeta):
             return inspect.getsource(obj)
+        elif isinstance(obj, functools.partial):
+            return ('partial object', inspect.getsource(obj.func), obj.args, obj.keywords)
+        elif isinstance(obj, itertools.cycle):
+            return ('itertools.cycle', list(itertools.islice(obj, 20)))
         return json.JSONEncoder.default(self, obj)
 
 
