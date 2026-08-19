@@ -6,6 +6,8 @@ import dill as pickle
 import humanize
 import filelock
 import time
+import os
+import tempfile
 import pathlib
 from abc import ABCMeta
 import xxhash
@@ -68,6 +70,28 @@ def _hash_value(x):
     return h
 
 
+def _atomic_write(target_path, write_func, mode="wb"):
+    """Write to a temp file in the same directory then atomically rename it onto target_path.
+
+    `write_func` is called with the open file handle and should perform the actual write.
+    """
+    target_path = pathlib.Path(target_path)
+    target_dir = target_path.parent
+    fd, tmp_path = tempfile.mkstemp(dir=target_dir, prefix=f".{target_path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, mode) as fhan:
+            write_func(fhan)
+            fhan.flush()
+            os.fsync(fhan.fileno())
+        os.replace(tmp_path, target_path)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def save_to_cache(file, location):
     location = pathlib.Path(location)
 
@@ -95,8 +119,7 @@ def save_to_cache(file, location):
                 hstring = str(all_args_as_key)[-15:]
                 cache_file = str((location/ f"{file}_{hstring}.pickle").resolve())
                 print(f"caching value in: {cache_file}")
-                with open(cache_file, "wb") as fhan:
-                    pickle.dump(result, fhan)
+                _atomic_write(cache_file, lambda fhan: pickle.dump(result, fhan))
 
 
                 cache_index[all_args_as_key] = {
@@ -120,8 +143,11 @@ def save_to_cache(file, location):
 
                 updated_cache_index[all_args_as_key]['hits'] += 1
 
-                with open(cache_index_file, 'w') as fhan:
-                    json.dump(updated_cache_index, fhan, indent=4)
+                _atomic_write(
+                    cache_index_file,
+                    lambda fhan: json.dump(updated_cache_index, fhan, indent=4),
+                    mode="w",
+                )
 
                 cache_index = updated_cache_index
 
