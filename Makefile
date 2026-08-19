@@ -180,40 +180,41 @@ output/optim_col_vs_rand.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_col_vs_rand --n-runs $(SIM_N_RUNS)
 output/optim_open_vs_closed_toy.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_kf_mmica_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_bw_mmica_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
-output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
+
+# output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_kf_sjpca_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_kf_sjpca_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_kf_mmica_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_kf_mmica_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_prosvd_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_prosvd_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_sjpca_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_sjpca_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_mmica_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_bw_mmica_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg bw --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_prosvd_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_prosvd_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_sjpca_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_sjpca_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red sjpca --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_mmica_odoherty21.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset odoherty21 --n-runs $(SIM_N_RUNS)
+# output/open_vs_closed_by_dimred_vjf_mmica_zong22.svg:
+# 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red mmica --type-of-autoreg vjf --dataset zong22 --n-runs $(SIM_N_RUNS)
 
 
 
