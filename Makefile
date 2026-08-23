@@ -112,6 +112,7 @@ output/daie21_1step.svg:
 	-p output $@ \
 	-p output2 output/daie21_1step_stripplot.svg \
 	-p output3_response_pairwise_plot output/daie21_response_pairwise.svg \
+	-p output4_quiver_plot output/daie21_quiver_plot.svg \
 	figure_code/behavior/daie21.ipynb /tmp/output.ipynb
 
 
@@ -125,6 +126,7 @@ output/draelos25_1step.svg:
 	-p output5 output/draelos25_behavior_stim_locations.svg \
 	-p output6 output/draelos25_1step_stripplot.svg \
 	-p output7_response_pairwise_plot output/draelos25_response_pairwise.svg \
+	-p output8_quiver_plot output/draelos25_quiver_plot.svg \
 	 figure_code/behavior/draelos25.ipynb /tmp/output.ipynb
 
 # fig:closed
