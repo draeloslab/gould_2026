@@ -108,7 +108,11 @@ output/show_toy_dataset.svg:
 
 # fig:mouse
 output/daie21_1step.svg:
-	$(PAPERMILL_COMMAND) -p output $@ figure_code/behavior/real_beh.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) \
+	-p output $@ \
+	-p output2 output/daie21_1step_stripplot.svg \
+	-p output3_response_pairwise_plot output/daie21_response_pairwise.svg \
+	figure_code/behavior/daie21.ipynb /tmp/output.ipynb
 
 
 # fig:fish
@@ -119,7 +123,9 @@ output/draelos25_1step.svg:
 	-p output3 output/draelos25_low_and_low_d_response.svg \
 	-p output4 output/draelos25_behavior.svg \
 	-p output5 output/draelos25_behavior_stim_locations.svg \
-	 figure_code/behavior/real_improv_dataset.ipynb /tmp/output.ipynb
+	-p output6 output/draelos25_1step_stripplot.svg \
+	-p output7_response_pairwise_plot output/draelos25_response_pairwise.svg \
+	 figure_code/behavior/draelos25.ipynb /tmp/output.ipynb
 
 # fig:closed
 output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
