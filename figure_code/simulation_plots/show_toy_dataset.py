@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 from gould_2026.datasets import LDS
 import numpy as np
 from learn_s_hat_toy import n_rotations, stims_per_rotation, stim_magnitude, noise_variance
+from gould_2026.plotting import Palette
 
 
 def show_toy_dataset():
-    fig, ax = plt.subplots(subplot_kw=dict(projection="3d"))
+    fig1, ax = plt.subplots(subplot_kw=dict(projection="3d"))
 
     rng = np.random.default_rng(0)
 
@@ -15,9 +16,10 @@ def show_toy_dataset():
             u[2] = 5
         return u
 
+    stim_steps = {16, 32, 80, 150} # 52
     def true_S(lds, state, i, rng):
         u = np.zeros(3)
-        if i in {16, 32, 80, 150}: # 52
+        if i in stim_steps:
             u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
         return u
 
@@ -41,7 +43,15 @@ def show_toy_dataset():
     ax.zaxis._axinfo["grid"]['color'] = (1, 1, 1, 0)
 
 
-    return fig
+    fig2, ax = plt.subplots()
+
+    ax.plot(Y[:,:2], color='k', alpha=.5)
+    ax.plot(Y[:,2], color='k')
+
+    for step in stim_steps:
+        ax.axvline(step, color='red', alpha=.5, linestyle='--')
+
+    return fig1, fig2
 
 if __name__ == '__main__':
     import argparse
@@ -51,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
 
-    fig = show_toy_dataset()
+    fig1, fig2 = show_toy_dataset()
 
-    fig.savefig(args.output, bbox_inches="tight")
+    fig1.savefig(args.output, bbox_inches="tight", transparent=True)
+    fig2.savefig(args.output.with_name(args.output.stem + "_2" + args.output.suffix), bbox_inches="tight", transparent=True)

@@ -4,6 +4,7 @@ from gould_2026.datasets import Zong22Dataset
 from gould_2026.estimator import ArrayWithTime
 
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
+from gould_2026.plotting import Palette, LINEWIDTH, EM
 from sim_stim import make_srs, make_slices_tensor
 import functools
 from itertools import cycle
@@ -11,17 +12,17 @@ import matplotlib.pyplot as plt
 
 zero_thresh = 0.05  # NOTE: only used for plot_1's visualization threshold now; see gould_2026/sim_stim.py
                      # for how to restore actual stim-value zeroing during simulation.
-amount_to_add = 4
+amount_to_add = 0
 switch_time = 304
 colors = ['#ca1469ff','#4d4d4dff']
 
 
-def make_srs_zong(data, rng, n_runs=1, show_tqdm=False, overrides=None):
+def make_srs_zong(data, rng, n_runs=1, show_tqdm=False, overrides=None, stim_magnitude=10):
     if overrides is None:
         overrides = {}
 
     common = dict(
-        stim_magnitude=10,
+        stim_magnitude=stim_magnitude,
         design_method='optimized identity u_to_s',
         exit_time=np.inf,
         stim_rate=None,
@@ -44,14 +45,14 @@ def make_srs_zong(data, rng, n_runs=1, show_tqdm=False, overrides=None):
     return make_srs(data, rng, to_run, n_runs=n_runs, show_tqdm=show_tqdm, overrides=overrides)
 
 
-def plot_1(srs):
+def plot_1(srs, d:Zong22Dataset, show_v):
     i = 40
     sr = srs['learning from stim'][0]
 
-    fig_1, axs = plt.subplots(ncols=2, figsize=(10,4), sharex=False, sharey=False, layout='constrained')
+    fig_1, axs1 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
 
     latents = sr.log['latents'].slice_by_time(slice(30,None))
-    axs[0].plot(latents[:, 0], latents[:, 1], alpha=.1, color='k')
+    axs1.plot(latents[:, 0], latents[:, 1], alpha=.1, color='k')
     stim_s = sr.log['stim_intended_samples'].t - latents.dt
 
     l = 1
@@ -59,32 +60,55 @@ def plot_1(srs):
     ax_n = 0
     center_t = sr.log['stim_intended_samples'].t[i]
     latents = sr.log['latents'].slice_by_time(slice(center_t-l,center_t+r))
-    line = axs[ax_n].plot(latents[:, 0], latents[:, 1], color='k', lw=3)
+    line = axs1.plot(latents[:, 0], latents[:, 1], color='k', lw=2*LINEWIDTH)
     stim_s = sr.log['stim_intended_samples'].slice_by_time(slice(center_t-l,center_t+r)).t - latents.dt
     latents_s = latents.slice_by_time(stim_s).reshape((-1, latents.shape[1]))
-    axs[ax_n].plot(latents_s[:, 0], latents_s[:, 1], '.', color='r')
 
     for arrow_index in [17, 50]:
-        axs[0].annotate('',
+        axs1.annotate('',
                         xytext=(latents[arrow_index, 0], latents[arrow_index, 1]),
                         xy=(latents[arrow_index+1, 0], latents[arrow_index+1, 1]),
-                        arrowprops=dict(arrowstyle="simple", color='C0'),
-                        size=11
+                        arrowprops=dict(arrowstyle="simple", color='k'),
+                        size=15*LINEWIDTH
                         )
 
+    for j in [0, 1]:
+        axs1.plot(latents_s[j, 0], latents_s[j, 1], '.', color='r')
+
+        if show_v:
+            axs1.annotate('',
+                            xytext=(latents_s[j, 0], latents_s[j, 1]),
+                            xy=(latents_s[j, 0] + .5, latents_s[j, 1] + 0),
+                            arrowprops=dict(arrowstyle="simple", color=Palette.v),
+                            size=15*LINEWIDTH
+                            )
 
     u = sr.stim_designer.log[i]['u']
     idx = np.argsort(np.abs(u))[::-1]
     # n_nonzero = np.linalg.norm(u,ord=0)
     n_nonzero = (np.abs(u) > zero_thresh).sum() # these were actually zeroed out with a custom line, this isn't a threshold
+    axs1.axis('off')
     print(f'{n_nonzero=}')
 
+    fig_2, axs2 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
     high_d = sr.log['high_d_with_stim'].slice_by_time(slice(center_t-l,center_t+r))
-    axs[1].plot(high_d.t, high_d[:,idx[:int(n_nonzero)]], color='k', lw=1)
-    axs[1].set_xticks([302, 304, 306,308])
+    axs2.plot(high_d.t, high_d[:,idx[:int(n_nonzero)]], color='k', lw=1/1.5*LINEWIDTH)
+    axs2.set_xticks([302, 304, 306,308])
     for stim_t in stim_s:
-        axs[1].axvline(stim_t, color='r')
-    return fig_1
+        axs2.axvline(stim_t, color='r')
+    axs2.set_ylim([-1, 11.5])
+    axs2.spines[['right', 'top']].set_visible(False)
+    axs2.set_xlabel('Time (s)')
+
+
+    u[u < zero_thresh] = np.nan
+    fig_3, ax = plt.subplots(ncols=1, figsize=(2.351, 2.351), sharex=False, sharey=False, layout='constrained')
+
+    ax.matshow(-d.ops['meanImg'], cmap='Grays')
+    xs, ys = list(zip(*[cell['med'] for cell in d.stat]))
+    ax.scatter(np.array(ys)[u > zero_thresh], np.array(xs)[u > zero_thresh], s=15, color='red')
+
+    return fig_1, fig_2, fig_3
 
 
 
@@ -164,16 +188,18 @@ def plot_2(srs):
 
     return fig
 
-def main():
+def main(stim_magnitude, show_v):
+
+    d = Zong22Dataset()
+
     def f():
         rng = np.random.default_rng(0)
-        d = Zong22Dataset()
         data = d.neural_data
 
         srs = make_srs_zong(
             data, rng, n_runs=1, show_tqdm=True,
             overrides=dict(
-                stim_magnitude=9.85,
+                stim_magnitude=stim_magnitude,
                 regressor_stim_delay=0 * data.dt,
                 delay_switch_time=switch_time,
                 delay_switch_amount=amount_to_add,
@@ -184,10 +210,12 @@ def main():
     srs = f()
 
 
-    fig_1 = plot_1(srs)
-    fig_2 = plot_2(srs)
+    fig_1, fig_2, fig_3 = plot_1(srs, d, show_v)
+    fig_4 = plot_2(srs)
 
-    return fig_1, fig_2
+    fig, ax = plt.subplots(constrained_layout=True)
+
+    return fig_1, fig_2, fig_3, fig_4
 
 
 if __name__ == '__main__':
@@ -196,9 +224,15 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output", type=pathlib.Path, required=True)
+    parser.add_argument("--stim_magnitude", type=float, default=10)
+    parser.add_argument("--show-v", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
-    fig_1, fig_2 = main()
+    print(f'{args.show_v = }')
 
-    fig_1.savefig(args.output, bbox_inches="tight")
-    fig_2.savefig(args.output.with_stem('zong_1step'), bbox_inches="tight")
+    fig_1, fig_2, fig_3, fig_4 = main(stim_magnitude=args.stim_magnitude, show_v=args.show_v)
+
+    fig_1.savefig(args.output.with_stem(args.output.stem), bbox_inches="tight", transparent=True)
+    fig_2.savefig(args.output.with_stem(args.output.stem + '_traces'), bbox_inches="tight", transparent=True)
+    fig_3.savefig(args.output.with_stem(args.output.stem + '_stim_pattern'), bbox_inches="tight", transparent=True)
+    fig_4.savefig(args.output.with_stem(args.output.stem + '_1step'), bbox_inches="tight", transparent=True)

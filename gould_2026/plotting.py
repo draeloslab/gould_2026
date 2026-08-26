@@ -1,7 +1,48 @@
 from enum import Enum
 import matplotlib
+import matplotlib.pyplot as plt
+
+DPI = 600
+LINEWIDTH = 0.5
+AXES_LINEWIDTH = 0.25
+EM = 6.
+
 matplotlib.rcParams['savefig.transparent'] = True
-matplotlib.rcParams['savefig.dpi'] = 300
+matplotlib.rcParams['savefig.dpi'] = DPI
+matplotlib.rcParams['savefig.bbox'] = 'tight'
+matplotlib.rcParams['savefig.pad_inches'] = 0
+
+
+matplotlib.rcParams['figure.dpi'] = DPI
+matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+
+
+matplotlib.rcParams['font.sans-serif'] = 'Arial'
+matplotlib.rcParams['font.family'] = 'sans-serif'
+matplotlib.rcParams['font.size'] = 1.25*EM
+matplotlib.rcParams['axes.labelpad'] = .4*EM
+matplotlib.rcParams['axes.labelsize'] = 1.25*EM
+
+
+matplotlib.rcParams['lines.linewidth'] = LINEWIDTH
+matplotlib.rcParams['lines.markersize'] = LINEWIDTH*4
+
+matplotlib.rcParams['axes.linewidth'] = AXES_LINEWIDTH
+
+
+matplotlib.rcParams['patch.linewidth'] = AXES_LINEWIDTH
+# matplotlib.rcParams['legend.frameon'] = False
+
+for axis in ['x', 'y']:
+
+    matplotlib.rcParams[f'{axis}tick.labelsize'] = EM
+    matplotlib.rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
+    matplotlib.rcParams[f'{axis}tick.major.size'] = EM/3
+    matplotlib.rcParams[f'{axis}tick.major.pad'] = EM/3
+    matplotlib.rcParams[f'{axis}tick.direction'] = 'in'
+
+
+# matplotlib.rcParams['constrained_layout.use'] = True
 
 overused_red = '#ca1469ff'
 

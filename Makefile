@@ -40,7 +40,10 @@ output/parallel_compare_lpp_zoom.svg:
 
 # fig:open
 output/zong_stim.svg:
-	$(COMMAND) figure_code/simulation_plots/zong_stim.py --output $@
+	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 10 --no-show-v --output $@
+
+output/zong_stim_control.svg:
+	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 0 --show-v  --output $@
 
 
 output/compare_opt_by_target.svg:
@@ -98,6 +101,8 @@ output/learn_s_hat_toy_1step_flip.svg:
 output/learn_s_hat_toy_1step_3d.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+
+stimreg_panels: output/learn_s_hat_toy_1step_3d.svg output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
 
 output/learn_s_hat_toy_manifold_error.svg:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output $@ --type-of-plot manifold-error

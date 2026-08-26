@@ -8,23 +8,19 @@ from sim_stim import make_srs, get_sim_stim_preset
 from gould_2026.sim_stim import StimDirectionType, StimResponseType
 from gould_2026.estimator import ArrayWithTime
 from gould_2026.datasets import Zong22Dataset, Odoherty21Dataset, LDS
-from gould_2026.prediction.vjf import VJF
-from gould_2026.utils import angle_between
-from gould_2026.prediction.bubblewrap import Bubblewrap
-from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
 import pandas
 from gould_2026.stim_designer import OptimizationMethod
 import scipy.stats
 import io
-from gould_2026.plotting import Palette
+from gould_2026.plotting import Palette, LINEWIDTH, EM
 
 _vh = .5
 verts = [ (-1., -_vh), (-1., _vh), (1., _vh), (1., -_vh), (-1., -_vh), ]
 codes = [ Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY, ]
 white_bar_path = Path(verts, codes)
-violinplot_inner_kws = {'marker': white_bar_path, 'markersize': 3, 'markerfacecolor': 'white', }
+violinplot_inner_kws = {'marker': white_bar_path, 'markersize': LINEWIDTH*2, 'markerfacecolor': 'white', }
 
 def add_info_to_json(line_info):
     try:
@@ -239,13 +235,19 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
 
 
 
-    fig, axs= plt.subplots(ncols=1, nrows=1, figsize=(8,8), squeeze=False, layout='constrained')
+    fig, axs= plt.subplots(ncols=1, nrows=1, figsize=np.array([1,1])*2, squeeze=False, layout='constrained')
 
 
     ax: plt.Axes = axs[0, 0]
     metric_name = 'angles(s_obs,v)'
     palette = {'normal': '#00000000', 'many': 'gray'}
-    sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order)
+    sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order, legend=False)
+    ax.set_xlabel('Target type')
+    ax.set_ylabel('Error angle ($^\\circ$)')
+    ax.spines[['right', 'top']].set_visible(False)
+
+    ax.tick_params(axis='x', bottom=False, top=False, left=False, right=False)
+    ax.set_yticks([0, 45, 90, 135, 180])
 
 
     # test output file
