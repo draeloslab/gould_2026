@@ -1,53 +1,54 @@
 from enum import Enum
 import matplotlib
 import matplotlib.pyplot as plt
+from contextlib import contextmanager
 
-DPI = 600
 LINEWIDTH = 0.5
 AXES_LINEWIDTH = 0.25
 EM = 6.
 
 matplotlib.rcParams['savefig.transparent'] = True
-matplotlib.rcParams['savefig.dpi'] = DPI
+matplotlib.rcParams['savefig.dpi'] = 600
 matplotlib.rcParams['savefig.bbox'] = 'tight'
 matplotlib.rcParams['savefig.pad_inches'] = 0
 
+@contextmanager
+def paper_plot_context(frameon=True):
+    rcParams = dict()
 
-matplotlib.rcParams['figure.dpi'] = DPI
-matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+    rcParams['figure.dpi'] = 83 # this renders true-to-scale with the QT backend in pycharm + jupyter on Tycho
+    rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+
+    rcParams['font.sans-serif'] = 'Arial'
+    rcParams['font.family'] = 'sans-serif'
+    rcParams['font.size'] = 1.25 * EM
+    rcParams['axes.labelpad'] = .4 * EM
+    rcParams['axes.labelsize'] = 1.25 * EM
+
+    rcParams['lines.linewidth'] = LINEWIDTH
+    rcParams['lines.markersize'] = LINEWIDTH * 4
+
+    rcParams['axes.linewidth'] = AXES_LINEWIDTH
+
+    rcParams['patch.linewidth'] = AXES_LINEWIDTH
+    rcParams['legend.frameon'] = frameon
+
+    for axis in ['x', 'y']:
+        rcParams[f'{axis}tick.labelsize'] = EM
+        rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
+        rcParams[f'{axis}tick.major.size'] = EM / 3
+        rcParams[f'{axis}tick.major.pad'] = EM / 3
+        rcParams[f'{axis}tick.direction'] = 'in'
 
 
-matplotlib.rcParams['font.sans-serif'] = 'Arial'
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.size'] = 1.25*EM
-matplotlib.rcParams['axes.labelpad'] = .4*EM
-matplotlib.rcParams['axes.labelsize'] = 1.25*EM
+    with plt.rc_context(rc=rcParams):
+        yield
 
-
-matplotlib.rcParams['lines.linewidth'] = LINEWIDTH
-matplotlib.rcParams['lines.markersize'] = LINEWIDTH*4
-
-matplotlib.rcParams['axes.linewidth'] = AXES_LINEWIDTH
-
-
-matplotlib.rcParams['patch.linewidth'] = AXES_LINEWIDTH
-# matplotlib.rcParams['legend.frameon'] = False
-
-for axis in ['x', 'y']:
-
-    matplotlib.rcParams[f'{axis}tick.labelsize'] = EM
-    matplotlib.rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
-    matplotlib.rcParams[f'{axis}tick.major.size'] = EM/3
-    matplotlib.rcParams[f'{axis}tick.major.pad'] = EM/3
-    matplotlib.rcParams[f'{axis}tick.direction'] = 'in'
-
-
-# matplotlib.rcParams['constrained_layout.use'] = True
 
 overused_red = '#ca1469ff'
+black = '#000000'
 
 class Palette(str, Enum):
-    overused_red = overused_red
     gray_background = '#E6E6E6FF'
 
     # dimension reduction algorithms
@@ -60,7 +61,7 @@ class Palette(str, Enum):
     blind = '#4d4d4dff'
 
     # open vs closed loop
-    open_trivial = '#000000'
+    open_trivial = black
     open_nontrivial = '#069406ff'
     # closed_trivial = '#000000'
     closed_nontrivial = overused_red
@@ -73,14 +74,14 @@ class Palette(str, Enum):
     negative = '#7ec97eff'
 
 
-    f_hat = '#000000'  # gray
+    f_hat = black
     s_designed = overused_red
     s_obs = overused_red
     v = '#1e7608ff'
-    x = '#000000'
-    u = '#000000'
+    x = black
+    u = black
 
 
-    kalman = '#000000'
-    bubblewrap = '#000000'
-    vjf = '#000000'
+    kalman = black
+    bubblewrap = black
+    vjf = black
