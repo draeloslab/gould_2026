@@ -4,11 +4,14 @@ from gould_2026.datasets import Zong22Dataset
 from gould_2026.estimator import ArrayWithTime
 
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
-from gould_2026.plotting import Palette, LINEWIDTH, EM
-from sim_stim import make_srs, make_slices_tensor
+from gould_2026.plotting import Palette, LINEWIDTH
+from sim_stim import make_srs
 import functools
+import pandas as pd
+from gould_2026.utils import angle_between
 from itertools import cycle
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 zero_thresh = 0.05  # NOTE: only used for plot_1's visualization threshold now; see gould_2026/sim_stim.py
                      # for how to restore actual stim-value zeroing during simulation.
@@ -96,7 +99,7 @@ def plot_1(srs, d:Zong22Dataset, show_v):
     axs2.set_xticks([302, 304, 306,308])
     for stim_t in stim_s:
         axs2.axvline(stim_t, color='r')
-    axs2.set_ylim([-1, 11.5])
+    axs2.set_ylim((-1, 11.5))
     axs2.spines[['right', 'top']].set_visible(False)
     axs2.set_xlabel('Time (s)')
 
@@ -108,7 +111,16 @@ def plot_1(srs, d:Zong22Dataset, show_v):
     xs, ys = list(zip(*[cell['med'] for cell in d.stat]))
     ax.scatter(np.array(ys)[u > zero_thresh], np.array(xs)[u > zero_thresh], s=15, color='red')
 
-    return fig_1, fig_2, fig_3
+    fig_4, ax = plt.subplots(ncols=1, figsize=(2.351, 2.351), sharex=False, sharey=False, layout='constrained')
+    df = pd.DataFrame({'l': sr.stim_designer.log})
+    df['v'] = df['l'].apply(lambda x: x['v'])
+    df['s_hat'] = df['l'].apply(lambda x: x['observed_s_hat'])
+
+    df['theta'] = df[['v', 's_hat']].apply(lambda x: angle_between(x['v'], x['s_hat']), axis=1)
+
+    sns.violinplot(data=df, y='theta', ax=ax, cut=0)
+
+    return fig_1, fig_2, fig_3, fig_4
 
 
 
@@ -210,12 +222,10 @@ def main(stim_magnitude, show_v):
     srs = f()
 
 
-    fig_1, fig_2, fig_3 = plot_1(srs, d, show_v)
-    fig_4 = plot_2(srs)
+    fig_1, fig_2, fig_3, fig_4 = plot_1(srs, d, show_v)
+    fig_5 = plot_2(srs)
 
-    fig, ax = plt.subplots(constrained_layout=True)
-
-    return fig_1, fig_2, fig_3, fig_4
+    return fig_1, fig_2, fig_3, fig_4, fig_5
 
 
 if __name__ == '__main__':
@@ -230,9 +240,10 @@ if __name__ == '__main__':
 
     print(f'{args.show_v = }')
 
-    fig_1, fig_2, fig_3, fig_4 = main(stim_magnitude=args.stim_magnitude, show_v=args.show_v)
+    fig_1, fig_2, fig_3, fig_4, fig_5 = main(stim_magnitude=args.stim_magnitude, show_v=args.show_v)
 
     fig_1.savefig(args.output.with_stem(args.output.stem), bbox_inches="tight", transparent=True)
     fig_2.savefig(args.output.with_stem(args.output.stem + '_traces'), bbox_inches="tight", transparent=True)
     fig_3.savefig(args.output.with_stem(args.output.stem + '_stim_pattern'), bbox_inches="tight", transparent=True)
-    fig_4.savefig(args.output.with_stem(args.output.stem + '_1step'), bbox_inches="tight", transparent=True)
+    fig_4.savefig(args.output.with_stem(args.output.stem + '_theta_violinplot'), bbox_inches="tight", transparent=True)
+    fig_5.savefig(args.output.with_stem(args.output.stem + '_1step'), bbox_inches="tight", transparent=True)
