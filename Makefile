@@ -98,18 +98,25 @@ output/learn_s_hat_toy_1step_flip.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 	$(PAPERMILL_COMMAND) -p u_function 'curvy_flips' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-output/learn_s_hat_toy_1step_3d.svg:
-	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+#output/learn_s_hat_toy_1step_3d.svg:
+#	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+#	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-stimreg_panels: output/learn_s_hat_toy_1step_3d.svg output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
+stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
 
 output/learn_s_hat_toy_manifold_error.svg:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output $@ --type-of-plot manifold-error
 
 
-output/show_toy_dataset.svg:
-	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@
+output/show_toy_dataset_curvy.svg:
+	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@ --plot-type curvy
+
+output/show_toy_dataset_curvy_flips.svg:
+	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@ --plot-type curvy_flips
+
+output/show_toy_dataset_curvy_spins.svg:
+	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@ --plot-type curvy_spins
+
 
 # fig:mouse
 output/daie21_1step.svg:

@@ -3,6 +3,7 @@ from gould_2026.estimator import ArrayWithTime
 import pandas as pd
 import scipy.stats
 from io import StringIO
+from gould_2026.plotting import Palette
 
 import matplotlib.pyplot as plt
 
@@ -95,6 +96,7 @@ def make_table(srs, time_slices, space_slices, make_slices_tensor, save_table=Fa
 
 def plot_manifold_error(srs, comparison_keys=('learning from stim', 'unaware of stim')):
     fig, ax = plt.subplots()
+    colors = [Palette.stim_regressed, Palette.blind]
 
     shes = []
     for i, k in enumerate(comparison_keys):
@@ -103,7 +105,7 @@ def plot_manifold_error(srs, comparison_keys=('learning from stim', 'unaware of 
             stim_samples = sr.log['stim_intended_samples']
             she, _ = ArrayWithTime.align_indices(she, stim_samples)
             she = np.mean(she**2, axis=2)
-            ax.plot(she.mean(axis=1), label=k, color=f'C{i}')
+            ax.plot(she.mean(axis=1), label=k, color=colors[i])
             shes.append(she)
 
 
@@ -111,7 +113,7 @@ def plot_manifold_error(srs, comparison_keys=('learning from stim', 'unaware of 
     ax.set_xlabel('# of stimuli')
     ax.set_ylabel(r'~$\mathbb{E}\Vert \hat S - S \Vert^2$')
     ax.set_ylim(bottom=0)
-    ax.legend()
+    # ax.legend()
 
     shes = np.array(shes)
     test_sample = 9

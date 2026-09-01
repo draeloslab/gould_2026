@@ -1,5 +1,6 @@
 from enum import Enum
 import matplotlib
+from matplotlib.path import Path
 import matplotlib.pyplot as plt
 from contextlib import contextmanager
 
@@ -7,42 +8,46 @@ LINEWIDTH = 0.5
 AXES_LINEWIDTH = 0.25
 EM = 6.
 
+rcParams = dict()
+
+rcParams['figure.dpi'] = 83  # this renders true-to-scale with the QT backend in pycharm + jupyter on Tycho
+rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
+
+rcParams['font.sans-serif'] = 'Arial'
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.size'] = 1.25 * EM
+rcParams['axes.labelpad'] = .4 * EM
+rcParams['axes.labelsize'] = 1.25 * EM
+
+rcParams['lines.linewidth'] = LINEWIDTH
+rcParams['lines.markersize'] = LINEWIDTH * 4
+
+rcParams['axes.linewidth'] = AXES_LINEWIDTH
+
+rcParams['patch.linewidth'] = AXES_LINEWIDTH
+
+for axis in ['x', 'y']:
+    rcParams[f'{axis}tick.labelsize'] = EM
+    rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
+    rcParams[f'{axis}tick.major.size'] = EM / 3
+    rcParams[f'{axis}tick.major.pad'] = EM / 3
+    rcParams[f'{axis}tick.direction'] = 'in'
+
+
 matplotlib.rcParams['savefig.transparent'] = True
 matplotlib.rcParams['savefig.dpi'] = 600
 matplotlib.rcParams['savefig.bbox'] = 'tight'
 matplotlib.rcParams['savefig.pad_inches'] = 0
 
+
 @contextmanager
-def paper_plot_context(frameon=True):
-    rcParams = dict()
-
-    rcParams['figure.dpi'] = 83 # this renders true-to-scale with the QT backend in pycharm + jupyter on Tycho
-    rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
-
-    rcParams['font.sans-serif'] = 'Arial'
-    rcParams['font.family'] = 'sans-serif'
-    rcParams['font.size'] = 1.25 * EM
-    rcParams['axes.labelpad'] = .4 * EM
-    rcParams['axes.labelsize'] = 1.25 * EM
-
-    rcParams['lines.linewidth'] = LINEWIDTH
-    rcParams['lines.markersize'] = LINEWIDTH * 4
-
-    rcParams['axes.linewidth'] = AXES_LINEWIDTH
-
-    rcParams['patch.linewidth'] = AXES_LINEWIDTH
-    rcParams['legend.frameon'] = frameon
-
-    for axis in ['x', 'y']:
-        rcParams[f'{axis}tick.labelsize'] = EM
-        rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
-        rcParams[f'{axis}tick.major.size'] = EM / 3
-        rcParams[f'{axis}tick.major.pad'] = EM / 3
-        rcParams[f'{axis}tick.direction'] = 'in'
-
-
+def paper_plot_context():
+    # rcParams['legend.frameon'] = frameon
     with plt.rc_context(rc=rcParams):
         yield
+
+def use_paper_plot_context():
+    plt.rcParams.update(rcParams)
 
 
 overused_red = '#ca1469ff'
@@ -85,3 +90,14 @@ class Palette(str, Enum):
     kalman = black
     bubblewrap = black
     vjf = black
+
+def make_violinplot_inner_kws():
+    _vh = .5
+    verts = [ (-1., -_vh), (-1., _vh), (1., _vh), (1., -_vh), (-1., -_vh), ]
+    codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY, ]
+    white_bar_path = Path(verts, codes)
+    violinplot_inner_kws = {'marker': white_bar_path, 'markersize': LINEWIDTH*2, 'markerfacecolor': 'white', }
+    return violinplot_inner_kws
+
+
+

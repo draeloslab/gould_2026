@@ -4,7 +4,7 @@ from gould_2026.datasets import Zong22Dataset
 from gould_2026.estimator import ArrayWithTime
 
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
-from gould_2026.plotting import Palette, LINEWIDTH
+from gould_2026.plotting import Palette, LINEWIDTH, paper_plot_context, make_violinplot_inner_kws
 from sim_stim import make_srs
 import functools
 import pandas as pd
@@ -52,73 +52,77 @@ def plot_1(srs, d:Zong22Dataset, show_v):
     i = 40
     sr = srs['learning from stim'][0]
 
-    fig_1, axs1 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
+    with paper_plot_context():
+        fig_1, axs1 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
 
-    latents = sr.log['latents'].slice_by_time(slice(30,None))
-    axs1.plot(latents[:, 0], latents[:, 1], alpha=.1, color='k')
-    stim_s = sr.log['stim_intended_samples'].t - latents.dt
+        latents = sr.log['latents'].slice_by_time(slice(30,None))
+        axs1.plot(latents[:, 0], latents[:, 1], alpha=.1, color='k')
+        stim_s = sr.log['stim_intended_samples'].t - latents.dt
 
-    l = 1
-    r = 4.7
-    ax_n = 0
-    center_t = sr.log['stim_intended_samples'].t[i]
-    latents = sr.log['latents'].slice_by_time(slice(center_t-l,center_t+r))
-    line = axs1.plot(latents[:, 0], latents[:, 1], color='k', lw=2*LINEWIDTH)
-    stim_s = sr.log['stim_intended_samples'].slice_by_time(slice(center_t-l,center_t+r)).t - latents.dt
-    latents_s = latents.slice_by_time(stim_s).reshape((-1, latents.shape[1]))
+        l = 1
+        r = 4.7
+        ax_n = 0
+        center_t = sr.log['stim_intended_samples'].t[i]
+        latents = sr.log['latents'].slice_by_time(slice(center_t-l,center_t+r))
+        line = axs1.plot(latents[:, 0], latents[:, 1], color='k', lw=2*LINEWIDTH)
+        stim_s = sr.log['stim_intended_samples'].slice_by_time(slice(center_t-l,center_t+r)).t - latents.dt
+        latents_s = latents.slice_by_time(stim_s).reshape((-1, latents.shape[1]))
 
-    for arrow_index in [17, 50]:
-        axs1.annotate('',
-                        xytext=(latents[arrow_index, 0], latents[arrow_index, 1]),
-                        xy=(latents[arrow_index+1, 0], latents[arrow_index+1, 1]),
-                        arrowprops=dict(arrowstyle="simple", color='k'),
-                        size=15*LINEWIDTH
-                        )
-
-    for j in [0, 1]:
-        axs1.plot(latents_s[j, 0], latents_s[j, 1], '.', color='r')
-
-        if show_v:
+        for arrow_index in [17, 50]:
             axs1.annotate('',
-                            xytext=(latents_s[j, 0], latents_s[j, 1]),
-                            xy=(latents_s[j, 0] + .5, latents_s[j, 1] + 0),
-                            arrowprops=dict(arrowstyle="simple", color=Palette.v),
+                            xytext=(latents[arrow_index, 0], latents[arrow_index, 1]),
+                            xy=(latents[arrow_index+1, 0], latents[arrow_index+1, 1]),
+                            arrowprops=dict(arrowstyle="simple", color='k'),
                             size=15*LINEWIDTH
                             )
 
-    u = sr.stim_designer.log[i]['u']
-    idx = np.argsort(np.abs(u))[::-1]
-    # n_nonzero = np.linalg.norm(u,ord=0)
-    n_nonzero = (np.abs(u) > zero_thresh).sum() # these were actually zeroed out with a custom line, this isn't a threshold
-    axs1.axis('off')
-    print(f'{n_nonzero=}')
+        for j in [0, 1]:
+            axs1.plot(latents_s[j, 0], latents_s[j, 1], '.', color='r')
 
-    fig_2, axs2 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
-    high_d = sr.log['high_d_with_stim'].slice_by_time(slice(center_t-l,center_t+r))
-    axs2.plot(high_d.t, high_d[:,idx[:int(n_nonzero)]], color='k', lw=1/1.5*LINEWIDTH)
-    axs2.set_xticks([302, 304, 306,308])
-    for stim_t in stim_s:
-        axs2.axvline(stim_t, color='r')
-    axs2.set_ylim((-1, 11.5))
-    axs2.spines[['right', 'top']].set_visible(False)
-    axs2.set_xlabel('Time (s)')
+            if show_v:
+                axs1.annotate('',
+                                xytext=(latents_s[j, 0], latents_s[j, 1]),
+                                xy=(latents_s[j, 0] + .5, latents_s[j, 1] + 0),
+                                arrowprops=dict(arrowstyle="simple", color=Palette.v),
+                                size=15*LINEWIDTH
+                                )
 
+        u = sr.stim_designer.log[i]['u']
+        idx = np.argsort(np.abs(u))[::-1]
+        # n_nonzero = np.linalg.norm(u,ord=0)
+        n_nonzero = (np.abs(u) > zero_thresh).sum() # these were actually zeroed out with a custom line, this isn't a threshold
+        axs1.axis('off')
+        print(f'{n_nonzero=}')
 
-    u[u < zero_thresh] = np.nan
-    fig_3, ax = plt.subplots(ncols=1, figsize=(2.351, 2.351), sharex=False, sharey=False, layout='constrained')
+    with paper_plot_context():
+        fig_2, axs2 = plt.subplots(ncols=1, figsize=(2.351,1.854), sharex=False, sharey=False, layout='constrained')
+        high_d = sr.log['high_d_with_stim'].slice_by_time(slice(center_t-l,center_t+r))
+        axs2.plot(high_d.t, high_d[:,idx[:int(n_nonzero)]], color='k', lw=1/1.5*LINEWIDTH)
+        axs2.set_xticks([302, 304, 306,308])
+        for stim_t in stim_s:
+            axs2.axvline(stim_t, color='r')
+        axs2.set_ylim((-1, 11.5))
+        axs2.spines[['right', 'top']].set_visible(False)
+        axs2.set_xlabel('Time (s)')
 
-    ax.matshow(-d.ops['meanImg'], cmap='Grays')
-    xs, ys = list(zip(*[cell['med'] for cell in d.stat]))
-    ax.scatter(np.array(ys)[u > zero_thresh], np.array(xs)[u > zero_thresh], s=15, color='red')
+    with paper_plot_context():
+        fig_3, ax = plt.subplots(ncols=1, figsize=(2.351, 2.351), sharex=False, sharey=False, layout='constrained')
 
-    fig_4, ax = plt.subplots(ncols=1, figsize=(2.351, 2.351), sharex=False, sharey=False, layout='constrained')
-    df = pd.DataFrame({'l': sr.stim_designer.log})
-    df['v'] = df['l'].apply(lambda x: x['v'])
-    df['s_hat'] = df['l'].apply(lambda x: x['observed_s_hat'])
+        u[u < zero_thresh] = np.nan
+        ax.matshow(-d.ops['meanImg'], cmap='Grays')
+        xs, ys = list(zip(*[cell['med'] for cell in d.stat]))
+        ax.scatter(np.array(ys)[u > zero_thresh], np.array(xs)[u > zero_thresh], s=15, color='red')
+        ax.axis('off')
 
-    df['theta'] = df[['v', 's_hat']].apply(lambda x: angle_between(x['v'], x['s_hat']), axis=1)
+    with paper_plot_context():
+        fig_4, ax = plt.subplots(ncols=1, figsize=(1.7, 1.7), sharex=False, sharey=False, layout='constrained')
+        df = pd.DataFrame({'l': sr.stim_designer.log})
+        df['v'] = df['l'].apply(lambda x: x['v'])
+        df['s_hat'] = df['l'].apply(lambda x: x['observed_s_hat'])
 
-    sns.violinplot(data=df, y='theta', ax=ax, cut=0)
+        df['theta'] = df[['v', 's_hat']].apply(lambda x: angle_between(x['v'], x['s_hat']), axis=1)
+
+        sns.violinplot(data=df, y='theta', ax=ax, cut=0, inner_kws=make_violinplot_inner_kws())
 
     return fig_1, fig_2, fig_3, fig_4
 

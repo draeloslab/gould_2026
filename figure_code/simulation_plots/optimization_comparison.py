@@ -14,13 +14,10 @@ import pandas
 from gould_2026.stim_designer import OptimizationMethod
 import scipy.stats
 import io
-from gould_2026.plotting import Palette, LINEWIDTH, EM
+from gould_2026.plotting import Palette, LINEWIDTH, EM, make_violinplot_inner_kws
 
-_vh = .5
-verts = [ (-1., -_vh), (-1., _vh), (1., _vh), (1., -_vh), (-1., -_vh), ]
-codes = [ Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY, ]
-white_bar_path = Path(verts, codes)
-violinplot_inner_kws = {'marker': white_bar_path, 'markersize': LINEWIDTH*2, 'markerfacecolor': 'white', }
+violinplot_inner_kws = make_violinplot_inner_kws()
+
 
 def add_info_to_json(line_info):
     try:
