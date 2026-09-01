@@ -10,7 +10,7 @@ EM = 6.
 
 rcParams = dict()
 
-rcParams['figure.dpi'] = 83  # this renders true-to-scale with the QT backend in pycharm + jupyter on Tycho
+rcParams['figure.dpi'] = 200
 rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
 
 rcParams['font.sans-serif'] = 'Arial'
@@ -41,9 +41,12 @@ matplotlib.rcParams['savefig.pad_inches'] = 0
 
 
 @contextmanager
-def paper_plot_context():
+def paper_plot_context(overrides=None):
+    if overrides is None:
+        overrides = dict()
+
     # rcParams['legend.frameon'] = frameon
-    with plt.rc_context(rc=rcParams):
+    with plt.rc_context(rc=rcParams | overrides):
         yield
 
 def use_paper_plot_context():
@@ -79,7 +82,7 @@ class Palette(str, Enum):
     negative = '#7ec97eff'
 
 
-    f_hat = black
+    f_hat = "#525252"
     s_designed = overused_red
     s_obs = overused_red
     v = '#1e7608ff'
