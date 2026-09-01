@@ -1,4 +1,3 @@
-export PYTHONPATH:= $(PYTHONPATH):$(CURDIR)/gould_2026
 export JAX_ENABLE_X64=1
 
 .PHONY: all
@@ -40,10 +39,20 @@ output/parallel_compare_lpp_zoom.svg:
 
 # fig:open
 output/zong_stim.svg:
-	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 10 --no-show-v --output $@
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p stim_magnitude 10 \
+		-p output_1_latents $@ \
+		-p output_2_traces output/zong_stim_traces.svg \
+		-p output_3_stim_pattern output/zong_stim_stim_pattern.svg \
+		-p output_4_theta_violinplot output/zong_stim_theta_violinplot.svg \
+		-p output_5_show_v output/zong_stim_show_v.svg \
+		-p output_6_show_s_hat output/zong_stim_show_s_hat.svg \
+		figure_code/simulation_plots/zong_stim.ipynb /dev/null
 
-output/zong_stim_control.svg:
-	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 0 --show-v  --output $@
+
+#output/zong_stim_control.svg:
+#	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 0 --show-v  --output $@
 
 
 output/compare_opt_by_target.svg:

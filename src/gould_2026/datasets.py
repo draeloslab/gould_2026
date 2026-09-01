@@ -22,7 +22,7 @@ from .prediction.kalman_filter import KalmanFilter
 
 import pathlib
 
-DATA_BASE_PATH = pathlib.Path(__file__).parent.parent.absolute() / "data"
+DATA_BASE_PATH = pathlib.Path(__file__).parent.parent.parent.absolute() / "data"
 
 
 class LDS:
