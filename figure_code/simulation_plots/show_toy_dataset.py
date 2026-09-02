@@ -38,7 +38,7 @@ def show_toy_dataset(plot_type: Literal['curvy', 'curvy_spins', 'curvy_flips']):
 
     with paper_plot_context():
         fig1, ax = plt.subplots(subplot_kw=dict(projection="3d"), figsize=(1,1))
-        ax.plot(Y[:, 0], Y[:, 1], Y[:, 2])
+        ax.plot(Y[:, 0], Y[:, 1], Y[:, 2], color='k')
 
 
         ax.axis('equal')
