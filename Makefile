@@ -51,10 +51,6 @@ output/zong_stim.svg:
 		figure_code/simulation_plots/zong_stim.ipynb /dev/null
 
 
-#output/zong_stim_control.svg:
-#	$(COMMAND) figure_code/simulation_plots/zong_stim.py --stim_magnitude 0 --show-v  --output $@
-
-
 output/compare_opt_by_target.svg:
 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --n-runs $(SIM_N_RUNS)
 

@@ -14,9 +14,10 @@ import pandas
 from gould_2026.stim_designer import OptimizationMethod
 import scipy.stats
 import io
-from gould_2026.plotting import Palette, LINEWIDTH, EM, make_violinplot_inner_kws
+from gould_2026.plotting import Palette, LINEWIDTH, EM, make_violinplot_inner_kws, use_paper_plot_context
 
 violinplot_inner_kws = make_violinplot_inner_kws()
+use_paper_plot_context()
 
 
 def add_info_to_json(line_info):
@@ -238,7 +239,7 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
     ax: plt.Axes = axs[0, 0]
     metric_name = 'angles(s_obs,v)'
     palette = {'normal': '#00000000', 'many': 'gray'}
-    sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order, legend=False)
+    sns.violinplot(sub_df, x='display_stim_direction_type', y=metric_name, hue='optim_method', orient='v', ax=ax, width=1, cut=0, density_norm='width',inner_kws = violinplot_inner_kws, palette=palette, order=order, legend=False)
     ax.set_xlabel('Target type')
     ax.set_ylabel('Error angle ($^\\circ$)')
     ax.spines[['right', 'top']].set_visible(False)
@@ -285,6 +286,18 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
         if hasattr(collection, 'get_facecolor'):
             if (collection.get_facecolor() == np.array([0,0,0,1])).all(): # in palette, 'normal' gets black
                 collection.set_facecolor(Palette[order[i//len(palette)]])
+
+
+    fig_temp, ax = plt.subplots(ncols=1, nrows=1, figsize=np.array([1,1])*2, squeeze=True, layout='constrained', subplot_kw={'projection': '3d'})
+    sub_df['s_norm'] = sub_df['l'].apply(lambda l: np.linalg.norm(l['s']))
+    sub_df['angles(s,v)'] = sub_df.l.apply(lambda l: angle(l['s'], l['v']))
+
+    ax.plot(sub_df['angles(s,v)'], sub_df['angles(s_obs,v)'], sub_df['s_norm'], '.')
+    ax.set_xlabel('angles(s,v)')
+    ax.set_ylabel('angles(s_obs,v)')
+    ax.set_zlabel('s_norm')
+    # sns.scatterplot(data=sub_df, x='angles(s,v)', y='angles(s_obs,v)', hue='s_norm', ax=ax, legend=False)
+    plt.show()
 
     return fig, [], [test_result_file]
 
@@ -358,8 +371,8 @@ def plot_optim_open_vs_closed_toy(n_runs=10):
 
     l_df['angle(s_obs,v)'] = l_df.l.apply(lambda l: angle(l['observed_s_hat'], l['v']))
     l_df['s_obs along v'] = l_df.l.apply(lambda l: proportion_in_space(l['v'], l['observed_s_hat']))
-    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='angle(s_obs,v)', ax=axs[0,0], width=1, density_norm='width',inner_kws = violinplot_inner_kws)
-    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='s_obs along v', ax=axs[0,1], width=1, density_norm='width',inner_kws = violinplot_inner_kws)
+    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='angle(s_obs,v)', ax=axs[0,0], width=1, cut=0, density_norm='width',inner_kws = violinplot_inner_kws)
+    sns.violinplot(data=l_df[l_df['l_i'] > 20], x='sr_key', y='s_obs along v', ax=axs[0,1], width=1, cut=0, density_norm='width',inner_kws = violinplot_inner_kws)
 
     return fig, [fig2]
 
@@ -393,7 +406,7 @@ if __name__ == '__main__':
 
             fig, axs = plt.subplots(ncols=2, squeeze=False, figsize=(8,4), layout='constrained')
             to_plot = {k:v for k, v in zip(srs.keys(), [x[0] for x in proportions])}
-            sns.violinplot(to_plot, orient='v', ax=axs[0,0], width=1, density_norm='width',inner_kws = violinplot_inner_kws)
+            sns.violinplot(to_plot, orient='v', ax=axs[0,0], width=1, prosvd_k=10, density_norm='width',inner_kws = violinplot_inner_kws)
             sns.swarmplot(to_plot, orient='v', ax=axs[0,0])
 
             for i, (k, errors) in enumerate(zip(srs.keys(), preq_errors)):

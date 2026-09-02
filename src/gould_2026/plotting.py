@@ -75,7 +75,7 @@ class Palette(str, Enum):
     closed_nontrivial = overused_red
 
     # sim-stim targets
-    Q_0 = overused_red
+    Q_0 = '#c87a65'
     feasible = '#beaed4ff'
     random = '#e1ab77ff'
     dense = '#6794cfff'
@@ -83,7 +83,7 @@ class Palette(str, Enum):
 
 
     f_hat = "#525252"
-    s_designed = overused_red
+    s_designed = 'red'
     s_obs = overused_red
     v = '#1e7608ff'
     x = black
