@@ -129,7 +129,7 @@ def calculate_equivalent_projection_matrix(pro, last_dim_red_object):
 
 def desired_stim_direction(latent_d, full_d, u_to_latent_s, stim_direction_type, rng, max_l0_norm):
     numpy = np
-    if isinstance(stim_direction_type, str):
+    if not isinstance(stim_direction_type, StimDirectionType):
         stim_direction_type = StimDirectionType(stim_direction_type)
         warnings.warn(f"stim_direction_type should be a StimDirectionType enum, not a string. Converting {stim_direction_type} to StimDirectionType.")
     if stim_direction_type == StimDirectionType.FIRST:

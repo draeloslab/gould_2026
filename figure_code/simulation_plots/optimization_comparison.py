@@ -61,8 +61,8 @@ def srs_to_l_df(srs):
                 stim_sample = latents.time_to_sample(t_of_stim)
                 old_v = latents[stim_sample-1] - latents[stim_sample-2]
                 this_v = latents[stim_sample] - latents[stim_sample-1]
-                l['old_v'] = old_v
-                l['this_v'] = this_v
+                l['old_v'] = old_v.as_array()
+                l['this_v'] = this_v.as_array()
 
                 records.append(dict(sr_key=k, sr_i=sr_i, l_i=l_i, l=l))
     return pandas.DataFrame(records)
