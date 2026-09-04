@@ -8,7 +8,7 @@ from gould_2026.dimension_reduction.prosvd import proSVD
 from gould_2026.dimension_reduction.jpca import sjPCA
 from gould_2026.dimension_reduction.ica import mmICA
 from gould_2026.prediction.bubblewrap import Bubblewrap
-from gould_2026.regression import MultiKernelRegressor
+from gould_2026.regression import KernelRegressor
 from gould_2026.datasets import Zong22Dataset
 
 # from gould_2026.utils import save_to_cache
@@ -148,7 +148,7 @@ def main():
         predictors = [Bubblewrap(log_level=2, check_dt=True, n_steps_to_predict=1) for _ in dim_red_methods]
         # predictors = [VJF(log_level=2, check_dt=True, n_steps_to_predict=1) for _ in dim_red_methods]
 
-        regs = [MultiKernelRegressor(maxlen=10000, length_scales=[0.1725], reweight_every=np.inf) for _ in dim_red_methods]
+        regs = [KernelRegressor(maxlen=10000, length_scales=[0.1725], reweight_every=np.inf) for _ in dim_red_methods]
 
         outputs = [[] for _ in dim_red_methods]
 

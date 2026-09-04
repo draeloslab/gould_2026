@@ -5,7 +5,7 @@ import numpy as np
 
 from .estimator import ArrayWithTime, Predictor
 from .prediction.kalman_filter import StreamingKalmanFilter
-from .regression import MultiKernelRegressor
+from .regression import KernelRegressor
 
 # TODO: make the time comparisons more uniform
 
@@ -77,8 +77,8 @@ class StimRegressor(Predictor):
             autoreg = StreamingKalmanFilter()
         self.autoreg: Predictor = autoreg
         if stim_reg is None:
-            stim_reg = MultiKernelRegressor(maxlen=100)
-        self.stim_reg: MultiKernelRegressor = stim_reg
+            stim_reg = KernelRegressor(maxlen=100)
+        self.stim_reg: KernelRegressor = stim_reg
         self.attempt_correction = attempt_correction
         self.heed_stimuli = heed_stimuli
         self.last_seen_stims = deque()

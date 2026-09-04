@@ -15,7 +15,7 @@ from .stim_regressor import StimRegressor
 from .dimension_reduction.ica import mmICA
 from .dimension_reduction.jpca import sjPCA
 from .dimension_reduction.prosvd import proSVD
-from .regression import MultiKernelRegressor
+from .regression import KernelRegressor
 from .prediction.kalman_filter import StreamingKalmanFilter
 from .stim_designer import StimDesigner
 from .save_to_cache import save_to_cache
@@ -257,7 +257,7 @@ def run_sim_stim(
 
     sr = StimRegressor(
         autoreg=autoreg(),
-        stim_reg=MultiKernelRegressor(length_scales=[0.04, 0.04, 0.04], maxlen=stim_reg_maxlen),
+        stim_reg=KernelRegressor(length_scales=[0.04, 0.04, 0.04], maxlen=stim_reg_maxlen),
         log_level=2,
         check_dt=True,
         attempt_correction=attempt_correction,
