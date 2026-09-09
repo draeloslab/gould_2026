@@ -5,7 +5,7 @@ import numpy as np
 import json
 import seaborn as sns
 from sim_stim import make_srs, get_sim_stim_preset
-from gould_2026.sim_stim import StimDirectionType, StimResponseType
+from gould_2026.sim_stim import StimDirectionType, StimResponseType, SimulationResult
 from gould_2026.estimator import ArrayWithTime
 from gould_2026.datasets import Zong22Dataset, Odoherty21Dataset, LDS
 from matplotlib.path import Path
@@ -57,6 +57,22 @@ def srs_to_l_df(srs):
         for sr_i, sr in enumerate(sr_list):
             latents: ArrayWithTime = sr.log['latents']
             for l_i, l in enumerate(sr.stim_designer.log):
+                t_of_stim = l['time_of_stim']
+                stim_sample = latents.time_to_sample(t_of_stim)
+                old_v = latents[stim_sample-1] - latents[stim_sample-2]
+                this_v = latents[stim_sample] - latents[stim_sample-1]
+                l['old_v'] = old_v.as_array()
+                l['this_v'] = this_v.as_array()
+
+                records.append(dict(sr_key=k, sr_i=sr_i, l_i=l_i, l=l))
+    return pandas.DataFrame(records)
+
+def simulations_to_l_df(simulations: dict[str, list[SimulationResult]]):
+    records = []
+    for k, result_list in simulations.items():
+        for sr_i, result in enumerate(result_list):
+            latents: ArrayWithTime = result.log['latents']
+            for l_i, l in enumerate(result.stim_designer.log):
                 t_of_stim = l['time_of_stim']
                 stim_sample = latents.time_to_sample(t_of_stim)
                 old_v = latents[stim_sample-1] - latents[stim_sample-2]

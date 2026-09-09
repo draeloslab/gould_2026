@@ -10,12 +10,31 @@ import tqdm.auto as tqdm
 import numpy as np
 import pandas as pd
 from gould_2026.stim_designer import OptimizationMethod
-from gould_2026.sim_stim import run_sim_stim as new_make_sr
+from gould_2026.sim_stim import run_sim_stim, SimulationResult
+new_make_sr = run_sim_stim
+
+def run_simulations(data, rng, to_run, n_runs=1, show_tqdm=False, overrides=None):
+    if overrides is None:
+        overrides = {}
+
+    srs = {}
+    with tqdm.tqdm(total=len(to_run) * n_runs, disable=not show_tqdm) as pbar:
+        for key, val in to_run.items():
+            val = val | overrides
+            sub_rng = copy.deepcopy(rng)
+            srs[key] = []
+            for _ in range(n_runs):
+                sub_rng, inner_sub_rng = sub_rng.spawn(2)
+                srs[key].append(run_sim_stim(input_array=data, rng=inner_sub_rng, **val))
+                pbar.update(1)
+
+    return srs
 
 
 
 def make_sr(*args, **kwargs):
-    sr, stim_designer, log = new_make_sr(*args, **kwargs)
+    simulation_result: SimulationResult = new_make_sr(*args, **kwargs)
+    sr, stim_designer, log = simulation_result.sr, simulation_result.stim_designer, simulation_result.log
     sr.log.update(log)
     sr.stim_designer = stim_designer
 
