@@ -104,7 +104,7 @@ class StimDesigner:
             u = numpy.array(u / u.max())
 
 
-        idx = numpy.argsort(u)
+        idx = numpy.argsort(numpy.abs(u))
         u[idx[:-self.max_l0_norm]] = 0
 
         return u, {'s': u_to_s_function(u)}
@@ -141,7 +141,7 @@ class StimDesigner:
             u = numpy.array(u / m)
 
         if sparse_constrained:
-            idx = numpy.argsort(u)
+            idx = numpy.argsort(numpy.abs(u))
             u[idx[:-self.max_l0_norm]] = 0
 
         if sparse_constrained and positive_constrained:
@@ -162,10 +162,6 @@ class StimDesigner:
         match optimization_method:
             case OptimizationMethod.LBFGS:
                 u, l = self.design_stim_jaxopt(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng)
-
-                # import warnings
-                # warnings.warn("calling slow jaxopt_generalized")
-                # u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=True, positive_constrained=True)
             case OptimizationMethod.LBFGS_UNCONSTRAINED:
                 u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
             case OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED:
@@ -191,7 +187,8 @@ class StimDesigner:
                 'optimization_time': time.perf_counter() - start_time,
                 'v':v,
                 'u':u,
-                's': numpy.nan * v
+                's': numpy.nan * v,
+                'optimization_method': optimization_method,
             } | l)
 
         return u
