@@ -119,7 +119,7 @@ _loo_mse_and_grad = jax.jit(jax.value_and_grad(_loo_mse, argnums=1))
 
 
 class KernelRegressor:
-    def __init__(self, length_scales=(1e-1,1e-1,1e-9), maxlen=100, input_names=('stim_location', 'stim_vector', 'stim_time'), reweight_every=1, rng=None, log_level=0):
+    def __init__(self, length_scales=(1e-1,1e-1,1e-9), maxlen=100, input_names=('stim_location', 'stim_vector', 'stim_time'), reweight_every=1, rng=None, adam_lr=0.01, log_level=0):
         self.maxlen = maxlen
         self.input_histories = None
         self.output_history = None
@@ -135,7 +135,7 @@ class KernelRegressor:
         self.log_length_scales = jnp.array(numpy.log(length_scales), dtype=jnp.float32)
 
         self.loo_max_sample_size = 30
-        self._opt = optax.adam(learning_rate=0.01)
+        self._opt = optax.adam(learning_rate=adam_lr)
         self._opt_state = self._opt.init(self.log_length_scales)
 
     def observe(self, x, y):
