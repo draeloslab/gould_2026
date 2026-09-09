@@ -3,9 +3,7 @@ import numpy
 import jax.numpy as jnp
 from jax.tree_util import Partial
 from jaxopt import ScipyBoundedMinimize, LBFGS, ScipyMinimize
-import itertools
 import copy
-import warnings
 from enum import Enum
 
 def _objective(u, v, u_to_s_function, lam_1, max_l0_norm, eps1=0., eps2=1e-10):
@@ -27,14 +25,14 @@ def _kernel_reg_u_to_s(u, stim_magnitude, f, pred, current_t):
     return stim_magnitude * f([pred, u, current_t])
 
 class OptimizationMethod(str, Enum):
-    JAXOPT = 'jaxopt'
-    JAXOPT_UNCONSTRAINED = 'jaxopt_unconstrained'
-    JAXOPT_POSITIVE_CONSTRAINED = 'jaxopt_positive_constrained'
-    JAXOPT_SPARSE_CONSTRAINED = 'jaxopt_sparse_constrained'
+    LBFGS = 'lbfgs'
+    LBFGS_UNCONSTRAINED = 'lbfgs_unconstrained'
+    LBFGS_POSITIVE_CONSTRAINED = 'lbfgs_positive_constrained'
+    LBFGS_SPARSE_CONSTRAINED = 'lbfgs_sparse_constrained'
     PREV_SEEN = 'prev_seen'
     CHEAT_LOWD_VEC = 'cheat_lowd_vec'
-    CHEAT_HIGHD_VEC_SINGLE_NEURONS = 'cheat_highd_vec_single_neurons'
-    CHEAT_HIGHD_VEC_MANY_NEURONS = 'cheat_highd_vec_many_neurons'  # TODO: this isn't really cheating, change the name?
+    RANDOM_SINGLE_NEURONS = 'cheat_highd_vec_single_neurons'
+    RANDOM_MANY_NEURONS = 'cheat_highd_vec_many_neurons'
 
 
 class StimDesigner:
@@ -44,7 +42,7 @@ class StimDesigner:
             rng_seed=0,  # TODO: make this an rng
             should_log=False,
             lam_1=0.001,
-            optimization_method=OptimizationMethod.JAXOPT,
+            optimization_method=OptimizationMethod.LBFGS,
             n_random_initialization=1,
     ):
         self.rng_seed = rng_seed
@@ -162,26 +160,26 @@ class StimDesigner:
             optimization_method = self.optimization_method
 
         match optimization_method:
-            case OptimizationMethod.JAXOPT:
+            case OptimizationMethod.LBFGS:
                 u, l = self.design_stim_jaxopt(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng)
 
                 # import warnings
                 # warnings.warn("calling slow jaxopt_generalized")
                 # u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=True, positive_constrained=True)
-            case OptimizationMethod.JAXOPT_UNCONSTRAINED:
+            case OptimizationMethod.LBFGS_UNCONSTRAINED:
                 u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
-            case OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED:
+            case OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED:
                 u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=False, positive_constrained=True)
-            case OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED:
+            case OptimizationMethod.LBFGS_SPARSE_CONSTRAINED:
                 u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=True, positive_constrained=False)
             case OptimizationMethod.PREV_SEEN:
                 u, l = self.design_stim_prev_seen(v, kwargs['previous_us'], kwargs['u_to_s_function'])
             case OptimizationMethod.CHEAT_LOWD_VEC:
                 u = (kwargs['equivalent_projection_matrix'] @ v).flatten()
-            case OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS:
+            case OptimizationMethod.RANDOM_SINGLE_NEURONS:
                 u = numpy.zeros(kwargs['equivalent_projection_matrix'].shape[0])
                 u[self.rng.choice(kwargs['equivalent_projection_matrix'].shape[0])] = 1
-            case OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS:
+            case OptimizationMethod.RANDOM_MANY_NEURONS:
                 u = numpy.zeros(kwargs['equivalent_projection_matrix'].shape[0])
                 u[self.rng.choice(kwargs['equivalent_projection_matrix'].shape[0], size=self.max_l0_norm, replace=False)] = 1
             case _:

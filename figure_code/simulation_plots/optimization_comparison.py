@@ -203,11 +203,11 @@ def make_table_over_target_type(n_runs, stim_direction_types):
             inner_common = common | dict(stim_direction_type=stim_direction_type)
 
             for optimization_method in [
-                OptimizationMethod.JAXOPT,
-                OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED,
-                OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED,
-                OptimizationMethod.JAXOPT_UNCONSTRAINED,
-                OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS,
+                OptimizationMethod.LBFGS,
+                OptimizationMethod.LBFGS_SPARSE_CONSTRAINED,
+                OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED,
+                OptimizationMethod.LBFGS_UNCONSTRAINED,
+                OptimizationMethod.RANDOM_MANY_NEURONS,
             ]:
                 to_run[f'{optimization_method} {stim_direction_type} {closed}'] = inner_common | dict(true_S=StimResponseType.IDENTITY, optimization_method=optimization_method, u_to_s_model_type=u_to_s_model_type)
     srs = make_srs(data=data, rng=rng, to_run=to_run, n_runs=n_runs, show_tqdm=True)
@@ -225,7 +225,7 @@ def make_table_over_target_type(n_runs, stim_direction_types):
     return l_df
 
 
-def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.JAXOPT, n_runs=10):
+def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.LBFGS, n_runs=10):
     stim_direction_types = ('random_feasible', 'first', 'ones', 'random', '-ones')
 
     l_df = make_table_over_target_type(n_runs=n_runs, stim_direction_types=stim_direction_types)
@@ -236,15 +236,15 @@ def compare_opt_by_target(closed=False, optimization_method=OptimizationMethod.J
     sub_df = l_df[
         (l_df['closed'] == closed)
         &
-        l_df['optim_method'].apply(lambda x: x in [optimization_method, OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS])
+        l_df['optim_method'].apply(lambda x: x in [optimization_method, OptimizationMethod.RANDOM_MANY_NEURONS])
     ]
 
     sub_df['optim_method'] = sub_df['optim_method'].map({
-        OptimizationMethod.JAXOPT: 'normal',
-        OptimizationMethod.JAXOPT_UNCONSTRAINED: 'normal',
-        OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED: 'normal',
-        OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED: 'normal',
-        OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS: 'many',
+        OptimizationMethod.LBFGS: 'normal',
+        OptimizationMethod.LBFGS_UNCONSTRAINED: 'normal',
+        OptimizationMethod.LBFGS_SPARSE_CONSTRAINED: 'normal',
+        OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED: 'normal',
+        OptimizationMethod.RANDOM_MANY_NEURONS: 'many',
     })
 
 
@@ -326,8 +326,8 @@ def cross_method_target_tests(closed=False, n_runs=10):
 
     for target in ['feasible', 'random']:
         metric_name = 'angles(s_obs,v)'
-        method1 = OptimizationMethod.JAXOPT
-        method2 = OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED
+        method1 = OptimizationMethod.LBFGS
+        method2 = OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED
 
         target_slice = l_df['display_stim_direction_type'] == target
         closed_slice = l_df['closed'] == closed
@@ -404,7 +404,7 @@ if __name__ == '__main__':
     parser.add_argument( "--type-of-autoreg", type=str, required=False, default='kf')
     parser.add_argument( "--dataset", type=str, required=False, default='Odoherty21')
     parser.add_argument( "--closed-loop", required=False, action='store_true')
-    parser.add_argument( "--optimization-method", type=OptimizationMethod, required=False, default=OptimizationMethod.JAXOPT, choices=[x.value for x in OptimizationMethod])
+    parser.add_argument( "--optimization-method", type=OptimizationMethod, required=False, default=OptimizationMethod.LBFGS, choices=[x.value for x in OptimizationMethod])
     args = parser.parse_args()
 
     rng = np.random.default_rng(0)

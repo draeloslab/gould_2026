@@ -63,7 +63,7 @@ def get_sim_stim_preset(comparison_preset):
     if comparison_preset is None: # this is for the case where this would get called, but we've transitioned the code to be local
         return {}, {}
 
-    default_common = dict(stim_magnitude=10, optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity', exit_time=np.inf, stim_rate=None, smoothing_tau=1, centerer_init_size=8 * 25, initial_nostim_period=30, regular_stim_iter=cycle([1 / 10, 1 / 3]), stim_timing_method='regular', autoreg=functools.partial(StreamingKalmanFilter, steps_between_refits=5), )
+    default_common = dict(stim_magnitude=10, optimization_method=OptimizationMethod.LBFGS, u_to_s_model_type='identity', exit_time=np.inf, stim_rate=None, smoothing_tau=1, centerer_init_size=8 * 25, initial_nostim_period=30, regular_stim_iter=cycle([1 / 10, 1 / 3]), stim_timing_method='regular', autoreg=functools.partial(StreamingKalmanFilter, steps_between_refits=5), )
     match comparison_preset:
         case 'pred methods':
             common = dict()
@@ -73,14 +73,14 @@ def get_sim_stim_preset(comparison_preset):
                 'vjf':dict(autoreg=VJF)
             }
         case 'optim_col_vs_rand':
-            common = dict(optimization_method=OptimizationMethod.JAXOPT, u_to_s_model_type='identity', stim_rate=1/2, exit_time=130)
+            common = dict(optimization_method=OptimizationMethod.LBFGS, u_to_s_model_type='identity', stim_rate=1 / 2, exit_time=130)
             to_run = {
                 'first column of Q': common | dict(stim_direction_type='first'),
                 'random columns of Q': common | dict(stim_direction_type='col'),
                 'random unit vector': common | dict(stim_direction_type='random'),
             }
         case 'optim_open_vs_closed_toy':
-            common = dict( stim_rate = 3, exit_time = np.inf, prosvd_k = 2, optimization_method=OptimizationMethod.JAXOPT,stim_direction_type='first',)
+            common = dict(stim_rate = 3, exit_time = np.inf, prosvd_k = 2, optimization_method=OptimizationMethod.LBFGS, stim_direction_type='first', )
             to_run = {
                 'open id': common | dict( u_to_s_model_type='identity', true_S='identity'),
                 'closed id': common | dict(u_to_s_model_type='kernel_regressed', true_S='identity'),

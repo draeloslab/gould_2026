@@ -229,10 +229,10 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
     if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED or optimization_method == OptimizationMethod.PREV_SEEN):
         # u_to_s_model_type = 'identity'
         u_to_s_model_type = None
-        optimization_method = OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS
+        optimization_method = OptimizationMethod.RANDOM_MANY_NEURONS
 
 
-    if optimization_method in {OptimizationMethod.JAXOPT, OptimizationMethod.JAXOPT_UNCONSTRAINED, OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED, OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
+    if optimization_method in {OptimizationMethod.LBFGS, OptimizationMethod.LBFGS_UNCONSTRAINED, OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED, OptimizationMethod.LBFGS_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
         stim_reg = sr.stim_reg
         previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
         if u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED:
@@ -245,7 +245,7 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
             designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
     elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == StimResponseModelType.IDENTITY:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
-    elif optimization_method in {OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS}:
+    elif optimization_method in {OptimizationMethod.RANDOM_MANY_NEURONS, OptimizationMethod.RANDOM_SINGLE_NEURONS}:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
     else:
         raise ValueError()
@@ -277,7 +277,7 @@ class SimStimConfig:
     heed_stimuli: bool = True
     stim_time_delay: int = 0
     regressor_stim_delay: int = 0
-    optimization_method: OptimizationMethod = OptimizationMethod.JAXOPT
+    optimization_method: OptimizationMethod = OptimizationMethod.LBFGS
     u_to_s_model_type: StimResponseModelType = StimResponseModelType.IDENTITY
     design_type: str = None  # TODO: currently unused, kept for parity with the old signature
     true_S: StimResponseType = StimResponseType.IDENTITY
@@ -320,7 +320,7 @@ def run_sim_stim(
         stim_time_delay=0,
         regressor_stim_delay=0,
         design_method=None, # TODO: refactor out
-        optimization_method=OptimizationMethod.JAXOPT,
+        optimization_method=OptimizationMethod.LBFGS,
         u_to_s_model_type=StimResponseModelType.IDENTITY,
         design_type=None,
         true_S=StimResponseType.IDENTITY,
@@ -361,11 +361,11 @@ def run_sim_stim(
     del regular_stim_iter, stim_rate
 
     _optimization_method, _u_to_s_model_type = {
-        'optimized learned u_to_s': (OptimizationMethod.JAXOPT, StimResponseModelType.KERNEL_REGRESSED),
-        'optimized identity u_to_s': (OptimizationMethod.JAXOPT, StimResponseModelType.IDENTITY),
+        'optimized learned u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.KERNEL_REGRESSED),
+        'optimized identity u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.IDENTITY),
         'direct cheating': (OptimizationMethod.CHEAT_LOWD_VEC, StimResponseModelType.IDENTITY),
-        'single neurons': (OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS, None),
-        'many neurons': (OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, None),
+        'single neurons': (OptimizationMethod.RANDOM_SINGLE_NEURONS, None),
+        'many neurons': (OptimizationMethod.RANDOM_MANY_NEURONS, None),
         None: (optimization_method, u_to_s_model_type),
     }[design_method]
     # single neurons
