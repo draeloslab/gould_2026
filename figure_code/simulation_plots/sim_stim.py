@@ -96,9 +96,6 @@ def get_sim_stim_preset(comparison_preset):
 
             for i in range(4):
                 for j in range(4):
-                    # for LDS:
-                    # to_run[f'({i}, {j})'] = dict(stim_time_delay=i, regressor_stim_delay=j, stim_magnitude=10, prosvd_k=4, exit_time=np.inf, initial_nostim_period=10, optimization_method='cheat_lowd_vec', u_to_s_model_type='identity', stim_rate=1/20)
-                    # for ODoherty
                     to_run[f'({i}, {j})'] = common | dict(stim_time_delay=i, regressor_stim_delay=j)
 
         case 'default':

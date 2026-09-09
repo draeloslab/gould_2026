@@ -36,7 +36,6 @@ class StimDesigner:
             should_log=False,
             lam_1=0.001,
             optimization_method=OptimizationMethod.JAXOPT,
-            u_to_s_model_type='identity', # TODO: remove? it's used in sim_stim_design_stim
             n_random_initialization=1,
     ):
         self.rng_seed = rng_seed
@@ -45,7 +44,6 @@ class StimDesigner:
         self.max_l0_norm = max_l0_norm
         self.should_log = should_log
         self.lam_1 = lam_1
-        self.u_to_s_model_type = u_to_s_model_type
 
         self.optimization_method: OptimizationMethod = optimization_method
         self.n_random_initialization = n_random_initialization
@@ -163,99 +161,6 @@ class StimDesigner:
             assert numpy.allclose(u, u_2)
 
         return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
-
-
-    # def design_stim_jaxopt_unconstrained(self, v, u_dimension, u_to_s_function=None):
-    #     if u_to_s_function is None:
-    #         u_to_s_function = _identity_u_to_s
-    #
-    #     u = self.rng.normal(size=(u_dimension,)) * 1/numpy.sqrt(12)
-    #
-    #     def objective(u):
-    #         s = u_to_s_function(u)
-    #         s_norm = jnp.linalg.norm(s)
-    #         loss = 0
-    #         # loss += self.lam_1 * (self.max_l0_norm - jnp.sum(jnp.abs(u)))
-    #         loss += jnp.dot(s, v) / (s_norm + 1e-10)
-    #         return -loss.reshape()
-    #
-    #     # lb = jnp.zeros_like(u)
-    #     # ub = jnp.ones_like(u)
-    #     #
-    #     # bounds = (lb, ub)
-    #     intermediate_xs = []
-    #     # runner = ScipyBoundedMinimize(fun=objective, method='l-bfgs-b', callback=lambda xk: intermediate_xs.append(xk) if self.should_log else None)
-    #     # result = runner.run(u, bounds=bounds)
-    #
-    #     runner = LBFGS(fun=objective)
-    #     result = runner.run(u)
-    #     u = numpy.array(result.params)
-    #
-    #     if numpy.abs(u).max() > 0:
-    #         u = numpy.array(u / numpy.abs(u).max())
-    #
-    #
-    #     # idx = numpy.argsort(u)
-    #     # u[idx[:-self.max_l0_norm]] = 0
-    #
-    #     return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
-
-    # def design_stim_jaxopt_positive_constrained(self, v, u_dimension, u_to_s_function=None):
-    #     if u_to_s_function is None:
-    #         u_to_s_function = _identity_u_to_s
-    #
-    #     u = self.rng.uniform(size=(u_dimension,)) * .1
-    #
-    #     def objective(u):
-    #         s = u_to_s_function(u)
-    #         s_norm = jnp.linalg.norm(s)
-    #         loss = 0
-    #         loss += jnp.dot(s, v) / (s_norm + 1e-10)
-    #         return -loss.reshape()
-    #
-    #     lb = jnp.zeros_like(u)
-    #     ub = jnp.ones_like(u)
-    #
-    #     bounds = (lb, ub)
-    #     intermediate_xs = []
-    #     runner = ScipyBoundedMinimize(fun=objective, method='l-bfgs-b', callback=lambda xk: intermediate_xs.append(xk) if self.should_log else None)
-    #     result = runner.run(u, bounds=bounds)
-    #
-    #     u = numpy.array(result.params)
-    #
-    #     if numpy.abs(u).max() > 0:
-    #         u = numpy.array(u / numpy.abs(u).max())
-    #
-    #     return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
-    #
-    # def design_stim_jaxopt_sparse_constrained(self, v, u_dimension, u_to_s_function=None):
-    #     if u_to_s_function is None:
-    #         u_to_s_function = _identity_u_to_s
-    #
-    #     u = self.rng.normal(size=(u_dimension,)) * 1/numpy.sqrt(12)
-    #
-    #     def objective(u):
-    #         s = u_to_s_function(u)
-    #         s_norm = jnp.linalg.norm(s)
-    #         loss = 0
-    #         loss += self.lam_1 * (self.max_l0_norm - jnp.sum(jnp.abs(u)))
-    #         loss += jnp.dot(s, v) / (s_norm + 1e-10)
-    #         return -loss.reshape()
-    #
-    #     intermediate_xs = []
-    #     runner = LBFGS(fun=objective)
-    #     result = runner.run(u)
-    #     u = numpy.array(result.params)
-    #
-    #     if numpy.abs(u).max() > 0:
-    #         u = numpy.array(u / numpy.abs(u).max())
-    #
-    #
-    #     idx = numpy.argsort(u)
-    #     u[idx[:-self.max_l0_norm]] = 0
-    #
-    #     return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
-
 
 
     def design_stim(self, v, optimization_method=None, **kwargs):

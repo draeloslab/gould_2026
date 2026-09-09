@@ -28,6 +28,10 @@ class StimResponseType(str, Enum):
     FLIP = 'flip'
     HIGH_D_PERMUTED = 'high_d_permuted'
 
+class StimResponseModelType(str, Enum):
+    IDENTITY = 'identity'
+    KERNEL_REGRESSED = 'kernel_regressed'
+    NO_MODEL = 'no_model'
 
 class StimDirectionType(str, Enum):
     FIRST = 'first'
@@ -220,10 +224,9 @@ class StimTimer:
 
 
 
-def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t):
+def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType):
     optimization_method = stim_designer.optimization_method
-    u_to_s_model_type = stim_designer.u_to_s_model_type
-    if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == 'kernel_regressed' or optimization_method == OptimizationMethod.PREV_SEEN):
+    if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED or optimization_method == OptimizationMethod.PREV_SEEN):
         # u_to_s_model_type = 'identity'
         u_to_s_model_type = None
         optimization_method = OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS
@@ -232,15 +235,15 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
     if optimization_method in {OptimizationMethod.JAXOPT, OptimizationMethod.JAXOPT_UNCONSTRAINED, OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED, OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
         stim_reg = sr.stim_reg
         previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
-        if u_to_s_model_type == 'kernel_regressed':
+        if u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED:
             f = stim_reg.make_jax_pred_f()
             pred = sr.autoreg.predict(n_steps=0)
             u_to_s_function = Partial(_kernel_reg_u_to_s, stim_magnitude=stim_magnitude, f=f, pred=pred, current_t=current_t)
             designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-        elif u_to_s_model_type == 'identity':
+        elif u_to_s_model_type == StimResponseModelType.IDENTITY:
             u_to_s_function = Partial(_linear_u_to_s, A=equivalent_projection_matrix.T, stim_magnitude=stim_magnitude)
             designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-    elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == 'identity':
+    elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == StimResponseModelType.IDENTITY:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
     elif optimization_method in {OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS}:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
@@ -274,8 +277,8 @@ class SimStimConfig:
     heed_stimuli: bool = True
     stim_time_delay: int = 0
     regressor_stim_delay: int = 0
-    optimization_method: str = 'jaxopt'
-    u_to_s_model_type: str = 'identity'
+    optimization_method: OptimizationMethod = OptimizationMethod.JAXOPT
+    u_to_s_model_type: StimResponseModelType = StimResponseModelType.IDENTITY
     design_type: str = None  # TODO: currently unused, kept for parity with the old signature
     true_S: StimResponseType = StimResponseType.IDENTITY
     stim_timing_method: str = 'random'
@@ -317,8 +320,8 @@ def run_sim_stim(
         stim_time_delay=0,
         regressor_stim_delay=0,
         design_method=None, # TODO: refactor out
-        optimization_method='jaxopt',
-        u_to_s_model_type='identity',
+        optimization_method=OptimizationMethod.JAXOPT,
+        u_to_s_model_type=StimResponseModelType.IDENTITY,
         design_type=None,
         true_S=StimResponseType.IDENTITY,
         stim_timing_method='random',
@@ -358,11 +361,11 @@ def run_sim_stim(
     del regular_stim_iter, stim_rate
 
     _optimization_method, _u_to_s_model_type = {
-        'optimized learned u_to_s': ('jaxopt', 'kernel_regressed'),
-        'optimized identity u_to_s': ('jaxopt', 'identity'),
-        'direct cheating': ('cheat_lowd_vec', 'identity'),
-        'single neurons': ('cheat_highd_vec_single_neurons', None),
-        'many neurons': ('cheat_highd_vec_many_neurons', None),
+        'optimized learned u_to_s': (OptimizationMethod.JAXOPT, StimResponseModelType.KERNEL_REGRESSED),
+        'optimized identity u_to_s': (OptimizationMethod.JAXOPT, StimResponseModelType.IDENTITY),
+        'direct cheating': (OptimizationMethod.CHEAT_LOWD_VEC, StimResponseModelType.IDENTITY),
+        'single neurons': (OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS, None),
+        'many neurons': (OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, None),
         None: (optimization_method, u_to_s_model_type),
     }[design_method]
     # single neurons
@@ -433,7 +436,6 @@ def run_sim_stim(
         rng_seed=other_rng.integers(2 ** 32),
         should_log=True,
         optimization_method=config.optimization_method, # todo:fix
-        u_to_s_model_type=config.u_to_s_model_type,
         n_random_initialization=config.n_identity_prior
     )
 
@@ -522,7 +524,7 @@ def run_sim_stim(
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
                     )
-                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
+                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type)
                     instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
