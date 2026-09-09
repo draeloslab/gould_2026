@@ -19,7 +19,7 @@ from .dimension_reduction.jpca import sjPCA
 from .dimension_reduction.prosvd import proSVD
 from .regression import KernelRegressor
 from .prediction.kalman_filter import StreamingKalmanFilter
-from .stim_designer import StimDesigner
+from .stim_designer import StimDesigner, OptimizationMethod, Partial, _kernel_reg_u_to_s, _linear_u_to_s
 from .save_to_cache import save_to_cache
 
 
@@ -181,6 +181,84 @@ def desired_stim_direction(latent_d, full_d, u_to_latent_s, stim_direction_type,
 
 def _hz_to_isi(x):
     return 1/x
+
+class StimTimer:
+    def __init__(
+            self,
+            inter_stim_interval_generator=None,
+            stim_timing_method='regular',
+            initial_nostim_period=1.,
+    ):
+        self.stim_timing_method = stim_timing_method
+        self.initial_nostim_period = initial_nostim_period
+        if inter_stim_interval_generator is None:
+            inter_stim_interval_generator = cycle([1])
+        self.inter_stim_interval_generator = inter_stim_interval_generator
+        self.last_stim_time = None
+        self.current_isi = None
+
+    def decide_whether_to_stim(self, current_t, **kwargs):
+        if current_t < self.initial_nostim_period:
+            return False
+
+        if self.stim_timing_method == 'isi':  # or 'regular'
+            if self.last_stim_time is None:
+                self.last_stim_time = self.initial_nostim_period if self.initial_nostim_period is not None else 0
+                self.current_isi = next(self.inter_stim_interval_generator)
+            if current_t > self.last_stim_time + self.current_isi:
+                self.last_stim_time = current_t
+                self.current_isi = next(self.inter_stim_interval_generator)
+                return True
+            return False
+        elif self.stim_timing_method == 'extreme':
+            return self.stim_when_extreme(current_t, **kwargs)
+        elif self.stim_timing_method == 'random':
+            return kwargs['stim_time_rng'].random() < 1 / next(self.inter_stim_interval_generator) * kwargs[
+                'input_array_dt']
+        else:
+            raise ValueError()
+
+
+
+def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t):
+    optimization_method = stim_designer.optimization_method
+    u_to_s_model_type = stim_designer.u_to_s_model_type
+    if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == 'kernel_regressed' or optimization_method == OptimizationMethod.PREV_SEEN):
+        # u_to_s_model_type = 'identity'
+        u_to_s_model_type = None
+        optimization_method = OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS
+
+
+    if optimization_method in {OptimizationMethod.JAXOPT, OptimizationMethod.JAXOPT_UNCONSTRAINED, OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED, OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
+        stim_reg = sr.stim_reg
+        previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
+        if u_to_s_model_type == 'kernel_regressed':
+            f = stim_reg.make_jax_pred_f()
+            pred = sr.autoreg.predict(n_steps=0)
+            u_to_s_function = Partial(_kernel_reg_u_to_s, stim_magnitude=stim_magnitude, f=f, pred=pred, current_t=current_t)
+            designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
+        elif u_to_s_model_type == 'identity':
+            u_to_s_function = Partial(_linear_u_to_s, A=equivalent_projection_matrix.T, stim_magnitude=stim_magnitude)
+            designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
+    elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == 'identity':
+        designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
+    elif optimization_method in {OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS}:
+        designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
+    else:
+        raise ValueError()
+
+    stim_designer.add_to_last_log({
+        'time_of_stim': current_t,
+        'equiv_proj_mat': equivalent_projection_matrix,
+        # 'stim_reg': copy.deepcopy(stim_reg),
+    })
+
+    if (designed_stim == 0).all():
+        designed_stim[0] = 1e-10
+        warnings.warn("Stimulus was all zero!")  # TODO: handle this better
+
+    return designed_stim
+
 
 
 @dataclass(frozen=True)
@@ -354,12 +432,15 @@ def run_sim_stim(
         max_l0_norm=config.max_l0_norm,
         rng_seed=other_rng.integers(2 ** 32),
         should_log=True,
-        initial_nostim_period=config.initial_nostim_period,
-        stim_timing_method=config.stim_timing_method,
-        inter_stim_interval_generator=config.isi_generator,
         optimization_method=config.optimization_method, # todo:fix
         u_to_s_model_type=config.u_to_s_model_type,
         n_random_initialization=config.n_identity_prior
+    )
+
+    stim_timer = StimTimer(
+        initial_nostim_period=config.initial_nostim_period,
+        stim_timing_method=config.stim_timing_method,
+        inter_stim_interval_generator=config.isi_generator,
     )
 
     sim_stim_calculator = SimulatedStimResponseCalculator(
@@ -424,7 +505,7 @@ def run_sim_stim(
                     sr.stim_delay = sr.stim_delay + sr.dt * config.delay_switch_amount
                     delay_switched = True
 
-                stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
+                stim_decision = stim_timer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
                 decided_stims.append(ArrayWithTime(stim_decision, data.t))
 
                 equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
@@ -441,7 +522,7 @@ def run_sim_stim(
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
                     )
-                    designed_stim = stim_designer.sim_stim_design_stim(sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
+                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
                     instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
@@ -484,17 +565,13 @@ def run_sim_stim(
                 if config.heed_stimuli and len(resolved_stim_ts):
                     assert len(resolved_stim_ts) == 1
                     stim_t = list(resolved_stim_ts)[0]
-                    for l in reversed(stim_designer.log):
-                        if stim_t == l['time_of_stim']:
-                            obs = sr.stim_reg.get_obs(t=stim_t + sr.stim_delay)
-                            # TODO: is this correct?
-                            # obs = sr.stim_reg.get_obs(t=stim_t + sr.dt * len(sim_stim_adder.stim_delay_queue))
 
-                            l['observed_s_hat'] = obs.pop('output')
-                            l['observed_reg_input'] = [v for v in obs.values()]
-                            break
-                    else:
-                        raise Exception('resolved stim is not in stim_designer log')
+                    obs = sr.stim_reg.get_obs(t=stim_t + sr.stim_delay)
+                    d = {
+                        'observed_s_hat':obs.pop('output'),
+                        'observed_reg_input':[v for v in obs.values()]
+                    }
+                    stim_designer.add_to_last_log(d, assert_callback=lambda l: l['time_of_stim'] == stim_t)
 
                 if config.show_tqdm:
                     pbar.update(round(float(data.t), 2) - pbar.n)

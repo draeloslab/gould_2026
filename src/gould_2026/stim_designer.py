@@ -35,10 +35,7 @@ class StimDesigner:
             rng_seed=0,  # TODO: make this an rng
             should_log=False,
             lam_1=0.001,
-            inter_stim_interval_generator=None,
             optimization_method=OptimizationMethod.JAXOPT,
-            stim_timing_method='regular',
-            initial_nostim_period=1,
             u_to_s_model_type='identity', # TODO: remove? it's used in sim_stim_design_stim
             n_random_initialization=1,
     ):
@@ -52,47 +49,10 @@ class StimDesigner:
 
         self.optimization_method: OptimizationMethod = optimization_method
         self.n_random_initialization = n_random_initialization
-        self.stim_timing_method = stim_timing_method
-        self.initial_nostim_period = initial_nostim_period
-
-        if inter_stim_interval_generator is None:
-            inter_stim_interval_generator = itertools.repeat(1)
-        self.inter_stim_interval_generator = inter_stim_interval_generator
-        self.last_stim_time = None
-        self.current_isi = None
 
         self.log = []
 
-        self.objective_history = []
 
-    def stim_when_extreme(self, current_t, objective_value):
-        self.objective_history.append(objective_value)
-        return current_t > 50 and objective_value == numpy.nanmin(self.objective_history)
-
-    def decide_whether_to_stim(self, current_t, **kwargs):
-        if current_t < self.initial_nostim_period:
-            return False
-
-        if self.stim_timing_method == 'isi':  # or 'regular'
-            if self.last_stim_time is None:
-                self.last_stim_time = self.initial_nostim_period if self.initial_nostim_period is not None else 0
-                self.current_isi = next(self.inter_stim_interval_generator)
-            if current_t > self.last_stim_time + self.current_isi:
-                self.last_stim_time = current_t
-                self.current_isi = next(self.inter_stim_interval_generator)
-                return True
-            return False
-        elif self.stim_timing_method == 'extreme':
-            return self.stim_when_extreme(current_t, **kwargs)
-        elif self.stim_timing_method == 'random':
-            return kwargs['stim_time_rng'].random() < 1/next(self.inter_stim_interval_generator) * kwargs['input_array_dt']
-        else:
-            raise ValueError()
-
-
-
-    def register_stim(self):
-        pass
 
     def design_stim_prev_seen(self, v, previous_us, u_to_s_function=None):
         if u_to_s_function is None:
@@ -343,40 +303,9 @@ class StimDesigner:
 
         return u
 
-    def sim_stim_design_stim(self, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t):
-        self: StimDesigner
-        optimization_method = self.optimization_method
-        u_to_s_model_type = self.u_to_s_model_type
-        if sr.stim_reg.n_observed <= self.n_random_initialization and (u_to_s_model_type == 'kernel_regressed' or optimization_method == 'prev_seen'):
-            # u_to_s_model_type = 'identity'
-            u_to_s_model_type = None
-            optimization_method = 'cheat_highd_vec_many_neurons'
 
-
-        if optimization_method in {OptimizationMethod.JAXOPT, OptimizationMethod.JAXOPT_UNCONSTRAINED, OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED, OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
-            stim_reg = sr.stim_reg
-            previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
-            if u_to_s_model_type == 'kernel_regressed':
-                f = stim_reg.make_jax_pred_f()
-                pred = sr.autoreg.predict(n_steps=0)
-                u_to_s_function = Partial(_kernel_reg_u_to_s, stim_magnitude=stim_magnitude, f=f, pred=pred, current_t=current_t)
-                designed_stim = self.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-            elif u_to_s_model_type == 'identity':
-                u_to_s_function = Partial(_linear_u_to_s, A=equivalent_projection_matrix.T, stim_magnitude=stim_magnitude)
-                designed_stim = self.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-        elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == 'identity':
-            designed_stim = self.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
-        elif optimization_method in {OptimizationMethod.CHEAT_HIGHD_VEC_MANY_NEURONS, OptimizationMethod.CHEAT_HIGHD_VEC_SINGLE_NEURONS}:
-            designed_stim = self.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
-        else:
-            raise ValueError()
-
-        # self.log[-1]['stim_reg'] = copy.deepcopy(sr.stim_reg)
-        self.log[-1]['time_of_stim'] = current_t
-        self.log[-1]['equiv_proj_mat'] = equivalent_projection_matrix
-
-        if (designed_stim == 0).all():
-            designed_stim[0] = 1e-10
-            warnings.warn("Stimulus was all zero!")  # TODO: handle this better
-
-        return designed_stim
+    def add_to_last_log(self, d:dict, assert_callback=lambda l: True):
+        if not self.should_log:
+            return
+        assert assert_callback(self.log[-1])
+        self.log[-1].update(d)
