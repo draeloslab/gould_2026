@@ -8,6 +8,15 @@ import copy
 import warnings
 from enum import Enum
 
+def _objective(u, v, u_to_s_function, lam_1, max_l0_norm, eps1=0., eps2=1e-10):
+    s = u_to_s_function(u)
+    s_norm = jnp.sqrt(jnp.sum(jnp.square(s)) + eps1)
+    loss = 0
+    loss += jnp.where(lam_1 == 0.0, 0.0, lam_1 * (max_l0_norm - jnp.sum(jnp.abs(u))))
+    loss += jnp.dot(s, v) / (s_norm + eps2)
+    return -loss.reshape()
+
+
 def _identity_u_to_s(u):
     return u
 
@@ -48,6 +57,10 @@ class StimDesigner:
         self.optimization_method: OptimizationMethod = optimization_method
         self.n_random_initialization = n_random_initialization
 
+        self._box_constrained_optimizer = ScipyBoundedMinimize(fun=_objective, method='l-bfgs-b')
+        self._box_unconstrained_optimizer = ScipyMinimize(fun=_objective, method='l-bfgs-b')
+
+
         self.log = []
 
 
@@ -82,20 +95,11 @@ class StimDesigner:
 
         u = rng.uniform(size=(u_dimension,)) * .1
 
-        def objective(u):
-            s = u_to_s_function(u)
-            s_norm = jnp.linalg.norm(s)
-            loss = self.lam_1 * (self.max_l0_norm - jnp.sum(jnp.abs(u)))
-            loss += jnp.dot(s, v) / (s_norm + 1e-10)
-            return -loss.reshape()
-
         lb = jnp.zeros_like(u)
         ub = jnp.ones_like(u)
 
         bounds = (lb, ub)
-        intermediate_xs = []
-        runner = ScipyBoundedMinimize(fun=objective, method='l-bfgs-b', callback=lambda xk: intermediate_xs.append(xk) if self.should_log else None)
-        result = runner.run(u, bounds=bounds)
+        result = self._box_constrained_optimizer.run(u, bounds=bounds, v=v, u_to_s_function=u_to_s_function, lam_1=self.lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
         u = numpy.array(result.params)
 
         if u.max() > 0:
@@ -105,7 +109,7 @@ class StimDesigner:
         idx = numpy.argsort(u)
         u[idx[:-self.max_l0_norm]] = 0
 
-        return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
+        return u, {'s': u_to_s_function(u)}
 
     def design_stim_jaxopt_generalized(self, v, u_dimension, rng, u_to_s_function=None, sparse_constrained=True, positive_constrained=True):
         if u_to_s_function is None:
@@ -119,33 +123,19 @@ class StimDesigner:
 
 
         if sparse_constrained:
-            def objective(u):
-                s = u_to_s_function(u)
-                s_norm = jnp.linalg.norm(s)
-                loss = 0
-                loss += self.lam_1 * (self.max_l0_norm - jnp.sum(jnp.abs(u)))
-                loss += jnp.dot(s, v) / (s_norm + 1e-10)
-                return -loss.reshape()
+            lam_1 = self.lam_1
         else:
-            def objective(u):
-                s = u_to_s_function(u)
-                s_norm = jnp.linalg.norm(s)
-                loss = 0
-                loss += jnp.dot(s, v) / (s_norm + 1e-10)
-                return -loss.reshape()
+            lam_1 = 0
 
-        intermediate_xs = []
 
         if positive_constrained:
             lb = jnp.zeros_like(u)
             ub = jnp.ones_like(u)
             bounds = (lb, ub)
-            runner = ScipyBoundedMinimize(fun=objective, method='l-bfgs-b', callback=lambda xk: intermediate_xs.append(xk) if self.should_log else None)
-            result = runner.run(u, bounds=bounds)
+
+            result = self._box_constrained_optimizer.run(u, bounds=bounds, v=v, u_to_s_function=u_to_s_function, lam_1=lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
         else:
-            runner = ScipyMinimize(fun=objective, method='l-bfgs-b', callback=lambda xk: intermediate_xs.append(xk) if self.should_log else None)
-            # runner = LBFGS(fun=objective)
-            result = runner.run(u)
+            result = self._box_unconstrained_optimizer.run(u, v=v, u_to_s_function=u_to_s_function, lam_1=lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
 
         u = numpy.array(result.params)
 
@@ -160,7 +150,7 @@ class StimDesigner:
             u_2,l = self.design_stim_jaxopt(v, u_dimension, old_rng, u_to_s_function=u_to_s_function)
             assert numpy.allclose(u, u_2)
 
-        return u, {'s': u_to_s_function(u), 'intermediate_xs': numpy.array(intermediate_xs)}
+        return u, {'s': u_to_s_function(u)}
 
 
     def design_stim(self, v, optimization_method=None, **kwargs):
