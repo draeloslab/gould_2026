@@ -1,11 +1,21 @@
 import time
 import numpy
 import jax.numpy as jnp
+from jax.tree_util import Partial
 from jaxopt import ScipyBoundedMinimize, LBFGS, ScipyMinimize
 import itertools
 import copy
 import warnings
 from enum import Enum
+
+def _identity_u_to_s(u):
+    return u
+
+def _linear_u_to_s(u, A, stim_magnitude):
+    return stim_magnitude * (A @ u)
+
+def _kernel_reg_u_to_s(u, stim_magnitude, f, pred, current_t):
+    return stim_magnitude * f([pred, u, current_t])
 
 class OptimizationMethod(str, Enum):
     JAXOPT = 'jaxopt'
@@ -86,7 +96,7 @@ class StimDesigner:
 
     def design_stim_prev_seen(self, v, previous_us, u_to_s_function=None):
         if u_to_s_function is None:
-            u_to_s_function = lambda u: u
+            u_to_s_function = _identity_u_to_s
 
         # TODO: keep this consistent with jaxopt version
         def objective(u):
@@ -110,7 +120,7 @@ class StimDesigner:
 
     def design_stim_jaxopt(self, v, u_dimension, rng, u_to_s_function=None):
         if u_to_s_function is None:
-            u_to_s_function = lambda x: x
+            u_to_s_function = _identity_u_to_s
 
         u = rng.uniform(size=(u_dimension,)) * .1
 
@@ -141,7 +151,7 @@ class StimDesigner:
 
     def design_stim_jaxopt_generalized(self, v, u_dimension, rng, u_to_s_function=None, sparse_constrained=True, positive_constrained=True):
         if u_to_s_function is None:
-            u_to_s_function = lambda x: x
+            u_to_s_function = _identity_u_to_s
 
         if positive_constrained:
             old_rng = copy.deepcopy(rng)
@@ -197,7 +207,7 @@ class StimDesigner:
 
     # def design_stim_jaxopt_unconstrained(self, v, u_dimension, u_to_s_function=None):
     #     if u_to_s_function is None:
-    #         u_to_s_function = lambda x: x
+    #         u_to_s_function = _identity_u_to_s
     #
     #     u = self.rng.normal(size=(u_dimension,)) * 1/numpy.sqrt(12)
     #
@@ -232,7 +242,7 @@ class StimDesigner:
 
     # def design_stim_jaxopt_positive_constrained(self, v, u_dimension, u_to_s_function=None):
     #     if u_to_s_function is None:
-    #         u_to_s_function = lambda x: x
+    #         u_to_s_function = _identity_u_to_s
     #
     #     u = self.rng.uniform(size=(u_dimension,)) * .1
     #
@@ -260,7 +270,7 @@ class StimDesigner:
     #
     # def design_stim_jaxopt_sparse_constrained(self, v, u_dimension, u_to_s_function=None):
     #     if u_to_s_function is None:
-    #         u_to_s_function = lambda x: x
+    #         u_to_s_function = _identity_u_to_s
     #
     #     u = self.rng.normal(size=(u_dimension,)) * 1/numpy.sqrt(12)
     #
@@ -345,16 +355,14 @@ class StimDesigner:
 
         if optimization_method in {OptimizationMethod.JAXOPT, OptimizationMethod.JAXOPT_UNCONSTRAINED, OptimizationMethod.JAXOPT_POSITIVE_CONSTRAINED, OptimizationMethod.JAXOPT_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
             stim_reg = sr.stim_reg
-            previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if optimization_method == 'prev_seen' else None
+            previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
             if u_to_s_model_type == 'kernel_regressed':
                 f = stim_reg.make_jax_pred_f()
                 pred = sr.autoreg.predict(n_steps=0)
-                def u_to_s_function(u):
-                    return stim_magnitude * f([pred, u, current_t])
+                u_to_s_function = Partial(_kernel_reg_u_to_s, stim_magnitude=stim_magnitude, f=f, pred=pred, current_t=current_t)
                 designed_stim = self.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
             elif u_to_s_model_type == 'identity':
-                def u_to_s_function(u):
-                    return stim_magnitude * equivalent_projection_matrix.T @ u
+                u_to_s_function = Partial(_linear_u_to_s, A=equivalent_projection_matrix.T, stim_magnitude=stim_magnitude)
                 designed_stim = self.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
         elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == 'identity':
             designed_stim = self.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
