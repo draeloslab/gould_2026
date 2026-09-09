@@ -31,7 +31,6 @@ class StimResponseType(str, Enum):
 class StimResponseModelType(str, Enum):
     IDENTITY = 'identity'
     KERNEL_REGRESSED = 'kernel_regressed'
-    NO_MODEL = 'no_model'
 
 class StimDirectionType(str, Enum):
     FIRST = 'first'
@@ -227,10 +226,7 @@ class StimTimer:
 def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType):
     optimization_method = stim_designer.optimization_method
     if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED or optimization_method == OptimizationMethod.PREV_SEEN):
-        # u_to_s_model_type = 'identity'
-        u_to_s_model_type = None
         optimization_method = OptimizationMethod.RANDOM_MANY_NEURONS
-
 
     if optimization_method in {OptimizationMethod.LBFGS, OptimizationMethod.LBFGS_UNCONSTRAINED, OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED, OptimizationMethod.LBFGS_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
         stim_reg = sr.stim_reg
@@ -239,11 +235,13 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
             f = stim_reg.make_jax_pred_f()
             pred = sr.autoreg.predict(n_steps=0)
             u_to_s_function = Partial(_kernel_reg_u_to_s, stim_magnitude=stim_magnitude, f=f, pred=pred, current_t=current_t)
-            designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
         elif u_to_s_model_type == StimResponseModelType.IDENTITY:
             u_to_s_function = Partial(_linear_u_to_s, A=equivalent_projection_matrix.T, stim_magnitude=stim_magnitude)
-            designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
-    elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC and u_to_s_model_type == StimResponseModelType.IDENTITY:
+        else:
+            raise ValueError()
+
+        designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
+    elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
     elif optimization_method in {OptimizationMethod.RANDOM_MANY_NEURONS, OptimizationMethod.RANDOM_SINGLE_NEURONS}:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
@@ -302,7 +300,7 @@ class SimulationResult(NamedTuple):
     log: dict
     config: SimStimConfig
 
-@save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
+# @save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
 def run_sim_stim(
         input_array,
         rng,
@@ -435,7 +433,7 @@ def run_sim_stim(
         max_l0_norm=config.max_l0_norm,
         rng_seed=other_rng.integers(2 ** 32),
         should_log=True,
-        optimization_method=config.optimization_method, # todo:fix
+        optimization_method=config.optimization_method,
         n_random_initialization=config.n_identity_prior
     )
 
