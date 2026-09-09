@@ -2,6 +2,8 @@ from collections import deque
 from enum import Enum
 import functools
 from types import SimpleNamespace
+from typing import NamedTuple
+from dataclasses import dataclass
 from itertools import cycle
 import warnings
 import time
@@ -38,10 +40,11 @@ class StimDirectionType(str, Enum):
     NEG_ONES = '-ones'
 
 
+
 class SimulatedStimResponseCalculator:
     """Calculates the ground truth response to stimulations in the simulation."""
     def __init__(self, *, rng, true_S=StimResponseType.IDENTITY):
-        if isinstance(true_S, str):
+        if not isinstance(true_S, StimResponseType):
             true_S = StimResponseType(true_S)
             warnings.warn(f"true_S should be a StimResponseType enum, not a string. Converting to StimResponseType.")
         self.true_S = true_S
@@ -73,7 +76,10 @@ class SimulatedStimResponseCalculator:
             transform_matrix = np.eye(equivalent_projection_matrix.shape[0])
         elif self.true_S == StimResponseType.FLIP:
             # TODO: it feels weird to have the ground truth response depend on the learned Q
-            flip_matrix = np.eye(equivalent_projection_matrix.shape[1])[::-1]
+            k = equivalent_projection_matrix.shape[1]
+            assert k % 2 == 0
+            J2 = np.array([[0, -1], [1, 0]])
+            flip_matrix = np.kron(np.eye(k//2), J2)
             transform_matrix = equivalent_projection_matrix @ flip_matrix @ equivalent_projection_matrix.T + np.eye(equivalent_projection_matrix.shape[0]) - equivalent_projection_matrix @ equivalent_projection_matrix.T
         elif self.true_S == StimResponseType.HIGH_D_PERMUTED:
             transform_matrix = np.eye(equivalent_projection_matrix.shape[0])
@@ -177,6 +183,44 @@ def _hz_to_isi(x):
     return 1/x
 
 
+@dataclass(frozen=True)
+class SimStimConfig:
+    autoreg: type = StreamingKalmanFilter
+    isi_generator: object = None
+    exit_time: float = 60
+    decay_rate: float = .8
+    prosvd_k: int = 10
+    stim_magnitude: float = 10
+    max_l0_norm: int = 30
+    attempt_correction: bool = True
+    heed_stimuli: bool = True
+    stim_time_delay: int = 0
+    regressor_stim_delay: int = 0
+    optimization_method: str = 'jaxopt'
+    u_to_s_model_type: str = 'identity'
+    design_type: str = None  # TODO: currently unused, kept for parity with the old signature
+    true_S: StimResponseType = StimResponseType.IDENTITY
+    stim_timing_method: str = 'random'
+    n_identity_prior: int = 10
+    stim_direction_type: StimDirectionType = StimDirectionType.FIRST
+    initial_nostim_period: float = 5
+    stim_reg_maxlen: int = 500
+    smoothing_tau: float = None
+    centerer_init_size: int = 0
+    last_dim_red: str = 'prosvd'
+    show_tqdm: bool = False
+    beh_decay_rate: float = .8
+    v_design_use_full_u_s_map: bool = False
+    delay_switch_time: float = None
+    delay_switch_amount: int = 0
+
+
+class SimulationResult(NamedTuple):
+    sr: StimRegressor
+    stim_designer: StimDesigner
+    log: dict
+    config: SimStimConfig
+
 @save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
 def run_sim_stim(
         input_array,
@@ -226,7 +270,6 @@ def run_sim_stim(
     timing_log.in_sim_time = []
 
 
-
     assert (regular_stim_iter is not None) + (stim_rate is not None) + (isi_generator is not None) == 1
     if stim_rate:
         isi_generator = cycle([1/stim_rate])
@@ -252,17 +295,54 @@ def run_sim_stim(
     if _u_to_s_model_type is not None:
         assert u_to_s_model_type == _u_to_s_model_type
 
+    config = SimStimConfig(
+        autoreg=autoreg,
+        isi_generator=isi_generator,
+        exit_time=exit_time,
+        decay_rate=decay_rate,
+        prosvd_k=prosvd_k,
+        stim_magnitude=stim_magnitude,
+        max_l0_norm=max_l0_norm,
+        attempt_correction=attempt_correction,
+        heed_stimuli=heed_stimuli,
+        stim_time_delay=stim_time_delay,
+        regressor_stim_delay=regressor_stim_delay,
+        optimization_method=_optimization_method,
+        u_to_s_model_type=_u_to_s_model_type,
+        design_type=design_type,
+        true_S=true_S,
+        stim_timing_method=stim_timing_method,
+        n_identity_prior=n_identity_prior,
+        stim_direction_type=stim_direction_type,
+        initial_nostim_period=initial_nostim_period,
+        stim_reg_maxlen=stim_reg_maxlen,
+        smoothing_tau=smoothing_tau,
+        centerer_init_size=centerer_init_size,
+        last_dim_red=last_dim_red,
+        show_tqdm=show_tqdm,
+        beh_decay_rate=beh_decay_rate,
+        v_design_use_full_u_s_map=v_design_use_full_u_s_map,
+        delay_switch_time=delay_switch_time,
+        delay_switch_amount=delay_switch_amount,
+    )
+    del (autoreg, isi_generator, exit_time, decay_rate, prosvd_k, stim_magnitude, max_l0_norm,
+         attempt_correction, heed_stimuli, stim_time_delay, regressor_stim_delay, optimization_method,
+         u_to_s_model_type, design_type, true_S, stim_timing_method, n_identity_prior, stim_direction_type,
+         initial_nostim_period, stim_reg_maxlen, smoothing_tau, centerer_init_size, last_dim_red, show_tqdm,
+         beh_decay_rate, v_design_use_full_u_s_map, delay_switch_time, delay_switch_amount,
+         _optimization_method, _u_to_s_model_type)
+
     stim_time_rng, other_rng = rng.spawn(2)
 
 
     sr = StimRegressor(
-        autoreg=autoreg(),
-        stim_reg=KernelRegressor(length_scales=[0.04, 0.04, 0.04], maxlen=stim_reg_maxlen),
+        autoreg=config.autoreg(),
+        stim_reg=KernelRegressor(length_scales=[0.04, 0.04, 0.04], maxlen=config.stim_reg_maxlen),
         log_level=2,
         check_dt=True,
-        attempt_correction=attempt_correction,
-        heed_stimuli=heed_stimuli,
-        stim_delay=regressor_stim_delay,
+        attempt_correction=config.attempt_correction,
+        heed_stimuli=config.heed_stimuli,
+        stim_delay=config.regressor_stim_delay,
     )
     # NOTE: the old zong_stim.py pipeline overrode the default autoregressive residual-correction here with
     # `sr.stim_autoreg = StimAutoReg(n_steps_to_consider=6)` (default is `n_steps_to_consider=0`, i.e. off).
@@ -271,46 +351,46 @@ def run_sim_stim(
     # from .stim_regressor import StimAutoReg
     # sr.stim_autoreg = StimAutoReg(n_steps_to_consider=6)
     stim_designer = StimDesigner(
-        max_l0_norm=max_l0_norm,
+        max_l0_norm=config.max_l0_norm,
         rng_seed=other_rng.integers(2 ** 32),
         should_log=True,
-        initial_nostim_period=initial_nostim_period,
-        stim_timing_method=stim_timing_method,
-        inter_stim_interval_generator=isi_generator,
-        optimization_method=optimization_method, # todo:fix
-        u_to_s_model_type=u_to_s_model_type,
-        n_random_initialization=n_identity_prior
+        initial_nostim_period=config.initial_nostim_period,
+        stim_timing_method=config.stim_timing_method,
+        inter_stim_interval_generator=config.isi_generator,
+        optimization_method=config.optimization_method, # todo:fix
+        u_to_s_model_type=config.u_to_s_model_type,
+        n_random_initialization=config.n_identity_prior
     )
 
     sim_stim_calculator = SimulatedStimResponseCalculator(
-        true_S=true_S,
+        true_S=config.true_S,
         rng=other_rng,
     )
     sim_stim_adder = SimulatedStimAdder(
-        stim_time_delay=stim_time_delay,
-        decay=decay_rate
+        stim_time_delay=config.stim_time_delay,
+        decay=config.decay_rate
     )
 
     beh_sim_stim_adder = SimulatedStimAdder(
-        stim_time_delay=stim_time_delay,
-        decay=beh_decay_rate
+        stim_time_delay=config.stim_time_delay,
+        decay=config.beh_decay_rate
     )
 
     log = {}
 
 
-    centerer = CenteringEstimator(init_size=centerer_init_size, nan_when_uninitialized=True)
-    if smoothing_tau is not None:
-        smoother = KernelSmoother(tau=smoothing_tau/input_array.dt)
+    centerer = CenteringEstimator(init_size=config.centerer_init_size, nan_when_uninitialized=True)
+    if config.smoothing_tau is not None:
+        smoother = KernelSmoother(tau=config.smoothing_tau/input_array.dt)
     else:
         smoother = Pipeline()
 
-    pro = proSVD(k=prosvd_k)
-    if last_dim_red == 'prosvd':
+    pro = proSVD(k=config.prosvd_k)
+    if config.last_dim_red == 'prosvd':
         last_dim_red_object = None
-    elif last_dim_red == 'sjpca':
+    elif config.last_dim_red == 'sjpca':
         last_dim_red_object = sjPCA()
-    elif last_dim_red == 'mmica':
+    elif config.last_dim_red == 'mmica':
         last_dim_red_object = mmICA()
     else:
         raise ValueError()
@@ -324,8 +404,8 @@ def run_sim_stim(
     high_d_stims = []
 
     pbar = nullcontext()
-    if show_tqdm:
-        pbar = tqdm(total=min(input_array.t[-1], exit_time))
+    if config.show_tqdm:
+        pbar = tqdm(total=min(round(input_array.t[-1]), config.exit_time))
 
     timing_log.init_time = time.perf_counter() - timing_log.init_time
     timing_log.loop_time = time.perf_counter()
@@ -339,9 +419,9 @@ def run_sim_stim(
 
                 # Simulates a change (partway through the run) in how many samples it takes for a stim to
                 # affect the recorded signal / be corrected for. Used e.g. by the zong_stim figure.
-                if delay_switch_time is not None and data.t > delay_switch_time and not delay_switched:
-                    sim_stim_adder.stim_delay_queue = deque([0] * delay_switch_amount)
-                    sr.stim_delay = sr.stim_delay + sr.dt * delay_switch_amount
+                if config.delay_switch_time is not None and data.t > config.delay_switch_time and not delay_switched:
+                    sim_stim_adder.stim_delay_queue = deque([0] * config.delay_switch_amount)
+                    sr.stim_delay = sr.stim_delay + sr.dt * config.delay_switch_amount
                     delay_switched = True
 
                 stim_decision = stim_designer.decide_whether_to_stim(data.t, stim_time_rng=stim_time_rng, input_array_dt=input_array.dt)
@@ -349,7 +429,7 @@ def run_sim_stim(
 
                 equivalent_projection_matrix = calculate_equivalent_projection_matrix(pro, last_dim_red_object)
                 if stim_decision and equivalent_projection_matrix is not None:
-                    if v_design_use_full_u_s_map:
+                    if config.v_design_use_full_u_s_map:
                         u_to_latent_s = functools.partial(sim_stim_calculator.true_stim_result_in_latent_space, equivalent_projection_matrix=equivalent_projection_matrix)
                     else:
                         u_to_latent_s = lambda x: equivalent_projection_matrix.T @ x
@@ -357,12 +437,12 @@ def run_sim_stim(
                         latent_d=equivalent_projection_matrix.shape[1],
                         full_d=equivalent_projection_matrix.shape[0],
                         u_to_latent_s=u_to_latent_s,
-                        stim_direction_type=stim_direction_type,
+                        stim_direction_type=config.stim_direction_type,
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
                     )
-                    designed_stim = stim_designer.sim_stim_design_stim(sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
-                    instantaneous_stim = designed_stim * stim_magnitude
+                    designed_stim = stim_designer.sim_stim_design_stim(sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t)
+                    instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
                 timing_log.stim_design[-1] = time.perf_counter() - timing_log.stim_design[-1]
@@ -401,7 +481,7 @@ def run_sim_stim(
                 timing_log.sr_update[-1] = time.perf_counter() - timing_log.sr_update[-1]
                 timing_log.stim_reg_updated[-1] = timing_log.stim_reg_updated[-1] != sr.stim_reg.n_observed
 
-                if heed_stimuli and len(resolved_stim_ts):
+                if config.heed_stimuli and len(resolved_stim_ts):
                     assert len(resolved_stim_ts) == 1
                     stim_t = list(resolved_stim_ts)[0]
                     for l in reversed(stim_designer.log):
@@ -416,7 +496,7 @@ def run_sim_stim(
                     else:
                         raise Exception('resolved stim is not in stim_designer log')
 
-                if show_tqdm:
+                if config.show_tqdm:
                     pbar.update(round(float(data.t), 2) - pbar.n)
 
                 timing_log.per_loop[-1] = time.perf_counter() - timing_log.per_loop[-1]
@@ -444,7 +524,7 @@ def run_sim_stim(
             else:
                 raise ValueError()
 
-            if data.t > exit_time:
+            if data.t > config.exit_time:
                 break
 
     timing_log.loop_time = time.perf_counter() - timing_log.loop_time
@@ -467,4 +547,4 @@ def run_sim_stim(
 
 
 
-    return sr, stim_designer, log
+    return SimulationResult(sr=sr, stim_designer=stim_designer, log=log, config=config)
