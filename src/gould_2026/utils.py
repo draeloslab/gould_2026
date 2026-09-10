@@ -40,7 +40,10 @@ def column_space_distance(Q1, Q2, method='grassmann', override_ortho_check=False
     else:
         raise ValueError()
 
-def angle_between(v1, v2, radians=False):
+def angle_between(v1, v2, radians=False, subspace=False):
     v1_u = v1.flatten() / np.linalg.norm(v1)
     v2_u = v2.flatten() / np.linalg.norm(v2)
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0)) * (180.0 / np.pi if not radians else 1.0)
+    angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    if subspace:
+        angle = min(angle, np.pi - angle)
+    return angle * (180.0 / np.pi if not radians else 1.0)
