@@ -29,7 +29,7 @@ class OptimizationMethod(str, Enum):
     LBFGS_UNCONSTRAINED = 'lbfgs_unconstrained'
     LBFGS_POSITIVE_CONSTRAINED = 'lbfgs_positive_constrained'
     LBFGS_SPARSE_CONSTRAINED = 'lbfgs_sparse_constrained'
-    PREV_SEEN = 'prev_seen'
+    # PREV_SEEN = 'prev_seen'
     CHEAT_LOWD_VEC = 'cheat_lowd_vec'
     RANDOM_SINGLE_NEURONS = 'cheat_highd_vec_single_neurons'
     RANDOM_MANY_NEURONS = 'cheat_highd_vec_many_neurons'
@@ -43,7 +43,12 @@ class StimDesigner:
             should_log=False,
             lam_1=0.001,
             optimization_method=OptimizationMethod.LBFGS,
-            n_random_initialization=1,
+            min_radius=0.,
+            eps1=10 ** -4.5,
+            eps2=1e-5,
+            n_random=1,
+            n_previous=50,
+
     ):
         self.rng_seed = rng_seed
         self.rng = numpy.random.default_rng(rng_seed)
@@ -51,9 +56,13 @@ class StimDesigner:
         self.max_l0_norm = max_l0_norm
         self.should_log = should_log
         self.lam_1 = lam_1
+        self.min_radius = min_radius
+        self.eps1 = eps1
+        self.eps2 = eps2
+        self.n_random = n_random
+        self.n_previous = n_previous
 
         self.optimization_method: OptimizationMethod = optimization_method
-        self.n_random_initialization = n_random_initialization
 
         self._box_constrained_optimizer = ScipyBoundedMinimize(fun=_objective, method='l-bfgs-b')
         self._box_unconstrained_optimizer = ScipyMinimize(fun=_objective, method='l-bfgs-b')
@@ -61,94 +70,66 @@ class StimDesigner:
 
         self.log = []
 
-
-
-    def design_stim_prev_seen(self, v, previous_us, u_to_s_function=None):
+    def design_stim_lbfgs(self, v, u_dimension, rng, u_to_s_function=None, previous_us=None, sparse_constrained=True, positive_constrained=True):
         if u_to_s_function is None:
             u_to_s_function = _identity_u_to_s
-
-        # TODO: keep this consistent with jaxopt version
-        def objective(u):
-            s = u_to_s_function(u)
-            s_norm = jnp.linalg.norm(s)
-            loss = 0
-            loss += jnp.dot(s, v) / (s_norm + 1e-10)
-            return -loss.reshape()
-
-        best_u = None
-        best_loss = float('inf')
-        # TODO: parallellize this
-        for u in previous_us:
-            loss = objective(u)
-            if loss < best_loss:
-                best_loss = loss
-                best_u = u
-
-        best_u = best_u / best_u.max()
-        return best_u, {'s': u_to_s_function(u)}
-
-    def design_stim_jaxopt(self, v, u_dimension, rng, u_to_s_function=None):
-        if u_to_s_function is None:
-            u_to_s_function = _identity_u_to_s
-
-        u = rng.uniform(size=(u_dimension,)) * .1
-
-        lb = jnp.zeros_like(u)
-        ub = jnp.ones_like(u)
-
-        bounds = (lb, ub)
-        result = self._box_constrained_optimizer.run(u, bounds=bounds, v=v, u_to_s_function=u_to_s_function, lam_1=self.lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
-        u = numpy.array(result.params)
-
-        if u.max() > 0:
-            u = numpy.array(u / u.max())
-
-
-        idx = numpy.argsort(numpy.abs(u))
-        u[idx[:-self.max_l0_norm]] = 0
-
-        return u, {'s': u_to_s_function(u)}
-
-    def design_stim_jaxopt_generalized(self, v, u_dimension, rng, u_to_s_function=None, sparse_constrained=True, positive_constrained=True):
-        if u_to_s_function is None:
-            u_to_s_function = _identity_u_to_s
-
-        if positive_constrained:
-            old_rng = copy.deepcopy(rng)
-            u = rng.uniform(size=(u_dimension,)) * .1 # to replicate later
-        else:
-            u = rng.normal(size=(u_dimension,)) * 1 / (10 * numpy.sqrt(12))
-
 
         if sparse_constrained:
             lam_1 = self.lam_1
         else:
             lam_1 = 0
 
+        us_to_try = []
+        for _ in range(self.n_random):
+            if positive_constrained:
+                u = rng.uniform(size=(u_dimension,)) * .1
+            else:
+                u = rng.normal(size=(u_dimension,)) * 1 / (10 * numpy.sqrt(12))
+            us_to_try.append(u)
 
-        if positive_constrained:
-            lb = jnp.zeros_like(u)
+        previous_performances = []
+        if self.n_previous > 0 and previous_us is not None:
+            for u in previous_us:
+                previous_performances.append(_objective(u,v,u_to_s_function,lam_1, self.max_l0_norm, eps1=self.eps1, eps2=self.eps2))
+            for i in numpy.argsort(previous_performances)[:self.n_previous]:
+                us_to_try.append(previous_us[i])
+
+
+        results = []
+        previous_performances = []
+        for u in us_to_try:
+            previous_performances.append(_objective(u, v, u_to_s_function, lam_1, self.max_l0_norm, eps1=self.eps1, eps2=self.eps2))
+
             ub = jnp.ones_like(u)
+            lb = jnp.zeros_like(u) if positive_constrained else -jnp.ones_like(u)
             bounds = (lb, ub)
+            result = self._box_constrained_optimizer.run(u, bounds=bounds, v=v, u_to_s_function=u_to_s_function, lam_1=lam_1, max_l0_norm=self.max_l0_norm, eps1=self.eps1, eps2=self.eps2)
 
-            result = self._box_constrained_optimizer.run(u, bounds=bounds, v=v, u_to_s_function=u_to_s_function, lam_1=lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
-        else:
-            result = self._box_unconstrained_optimizer.run(u, v=v, u_to_s_function=u_to_s_function, lam_1=lam_1, max_l0_norm=self.max_l0_norm, eps1=0., eps2=1e-10)
+            u = numpy.array(result.params)
 
-        u = numpy.array(result.params)
+            if sparse_constrained:
+                idx = numpy.argsort(numpy.abs(u))
+                u[idx[:-self.max_l0_norm]] = 0
 
-        if (m := numpy.abs(u).max()) > 0:
-            u = numpy.array(u / m)
+            if (m := numpy.abs(u).max()) > 0:
+                u = numpy.array(u / m)
 
-        if sparse_constrained:
-            idx = numpy.argsort(numpy.abs(u))
-            u[idx[:-self.max_l0_norm]] = 0
+            results.append(u)
 
-        if sparse_constrained and positive_constrained:
-            u_2,l = self.design_stim_jaxopt(v, u_dimension, old_rng, u_to_s_function=u_to_s_function)
-            assert numpy.allclose(u, u_2)
+        s_s = [u_to_s_function(u) for u in results]
+        losses = [_objective(u, v, u_to_s_function, lam_1, self.max_l0_norm, eps1=self.eps1, eps2=self.eps2) for u in results]
+        radii = [numpy.linalg.norm(s) for s in s_s]
 
-        return u, {'s': u_to_s_function(u)}
+        best_idx = 0
+        best_loss = losses[0]
+        for i, (loss, radius) in enumerate(zip(losses, radii)):
+            if loss < best_loss and radius > self.min_radius:
+                best_idx = i
+                best_loss = loss
+        u = results[best_idx]
+
+        return u, {'s': u_to_s_function(u), 'v': v, 'sparse_constrained': sparse_constrained, 'positive_constrained': positive_constrained, 'previous_performances': previous_performances, 'radii':radii, 'best_idx':best_idx, 'losses': losses}
+
 
 
     def design_stim(self, v, optimization_method=None, **kwargs):
@@ -161,15 +142,13 @@ class StimDesigner:
 
         match optimization_method:
             case OptimizationMethod.LBFGS:
-                u, l = self.design_stim_jaxopt(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng)
+                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=True)
             case OptimizationMethod.LBFGS_UNCONSTRAINED:
-                u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
+                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
             case OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED:
-                u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=False, positive_constrained=True)
+                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=True)
             case OptimizationMethod.LBFGS_SPARSE_CONSTRAINED:
-                u, l = self.design_stim_jaxopt_generalized(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], rng=self.rng, sparse_constrained=True, positive_constrained=False)
-            case OptimizationMethod.PREV_SEEN:
-                u, l = self.design_stim_prev_seen(v, kwargs['previous_us'], kwargs['u_to_s_function'])
+                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=False)
             case OptimizationMethod.CHEAT_LOWD_VEC:
                 u = (kwargs['equivalent_projection_matrix'] @ v).flatten()
             case OptimizationMethod.RANDOM_SINGLE_NEURONS:
