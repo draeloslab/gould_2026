@@ -213,8 +213,6 @@ class StimTimer:
                 self.current_isi = next(self.inter_stim_interval_generator)
                 return True
             return False
-        elif self.stim_timing_method == 'extreme':
-            return self.stim_when_extreme(current_t, **kwargs)
         elif self.stim_timing_method == 'random':
             return kwargs['stim_time_rng'].random() < 1 / next(self.inter_stim_interval_generator) * kwargs[
                 'input_array_dt']
@@ -223,12 +221,12 @@ class StimTimer:
 
 
 
-def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType):
+def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType, n_random_init):
     optimization_method = stim_designer.optimization_method
-    if sr.stim_reg.n_observed <= stim_designer.n_random_initialization and (u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED or optimization_method == OptimizationMethod.PREV_SEEN):
+    if sr.stim_reg.n_observed <= n_random_init and u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED:
         optimization_method = OptimizationMethod.RANDOM_MANY_NEURONS
 
-    if optimization_method in {OptimizationMethod.LBFGS, OptimizationMethod.LBFGS_UNCONSTRAINED, OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED, OptimizationMethod.LBFGS_SPARSE_CONSTRAINED, OptimizationMethod.PREV_SEEN}:
+    if optimization_method in {OptimizationMethod.LBFGS, OptimizationMethod.LBFGS_UNCONSTRAINED, OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED, OptimizationMethod.LBFGS_SPARSE_CONSTRAINED}:
         stim_reg = sr.stim_reg
         previous_us = stim_reg.input_histories[1][:stim_reg.n_observed] if stim_reg.input_histories is not None else None
         if u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED:
@@ -280,7 +278,7 @@ class SimStimConfig:
     design_type: str = None  # TODO: currently unused, kept for parity with the old signature
     true_S: StimResponseType = StimResponseType.IDENTITY
     stim_timing_method: str = 'random'
-    n_identity_prior: int = 10
+    n_random_init: int = 10
     stim_direction_type: StimDirectionType = StimDirectionType.FIRST
     initial_nostim_period: float = 5
     stim_reg_maxlen: int = 500
@@ -323,7 +321,7 @@ def run_sim_stim(
         design_type=None,
         true_S=StimResponseType.IDENTITY,
         stim_timing_method='random',
-        n_identity_prior=10,
+        n_random_init=10,
         stim_direction_type=StimDirectionType.FIRST,
         initial_nostim_period=5,
         stim_reg_maxlen=500,
@@ -391,7 +389,7 @@ def run_sim_stim(
         design_type=design_type,
         true_S=true_S,
         stim_timing_method=stim_timing_method,
-        n_identity_prior=n_identity_prior,
+        n_random_init=n_random_init,
         stim_direction_type=stim_direction_type,
         initial_nostim_period=initial_nostim_period,
         stim_reg_maxlen=stim_reg_maxlen,
@@ -406,7 +404,7 @@ def run_sim_stim(
     )
     del (autoreg, isi_generator, exit_time, decay_rate, prosvd_k, stim_magnitude, max_l0_norm,
          attempt_correction, heed_stimuli, stim_time_delay, regressor_stim_delay, optimization_method,
-         u_to_s_model_type, design_type, true_S, stim_timing_method, n_identity_prior, stim_direction_type,
+         u_to_s_model_type, design_type, true_S, stim_timing_method, n_random_init, stim_direction_type,
          initial_nostim_period, stim_reg_maxlen, smoothing_tau, centerer_init_size, last_dim_red, show_tqdm,
          beh_decay_rate, v_design_use_full_u_s_map, delay_switch_time, delay_switch_amount,
          _optimization_method, _u_to_s_model_type)
@@ -434,7 +432,6 @@ def run_sim_stim(
         rng_seed=other_rng.integers(2 ** 32),
         should_log=True,
         optimization_method=config.optimization_method,
-        n_random_initialization=config.n_identity_prior
     )
 
     stim_timer = StimTimer(
@@ -522,7 +519,7 @@ def run_sim_stim(
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
                     )
-                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type)
+                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type, n_random_init=config.n_random_init)
                     instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
