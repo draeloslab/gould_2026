@@ -5,7 +5,7 @@ import warnings
 def is_orthonormal(Q, rows_too=False):
     o = np.allclose(Q.T @ Q, np.eye(Q.shape[1]))
     if rows_too:
-        o = o and np.allclose(Q @ Q.t, np.eye(Q.shape[0]))
+        o = o and np.allclose(Q @ Q.T, np.eye(Q.shape[0]))
     return o
 
 def principle_angles(Q1, Q2):
