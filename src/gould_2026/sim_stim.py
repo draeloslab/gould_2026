@@ -2,7 +2,7 @@ from collections import deque
 from enum import Enum
 import functools
 from types import SimpleNamespace
-from typing import NamedTuple
+from typing import NamedTuple, Iterable, Callable
 from dataclasses import dataclass, replace
 from itertools import cycle
 import warnings
@@ -10,6 +10,7 @@ import time
 import copy
 
 import numpy as np
+from tqdm import auto as tqdm
 from tqdm.auto import tqdm
 from contextlib import nullcontext
 
@@ -190,7 +191,7 @@ class StimTimer:
     def __init__(
             self,
             inter_stim_interval_generator=None,
-            stim_timing_method='regular',
+            stim_timing_method='isi',
             initial_nostim_period=1.,
     ):
         self.stim_timing_method = stim_timing_method
@@ -263,8 +264,8 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
 
 @dataclass(frozen=True)
 class SimStimConfig:
-    autoreg: type = StreamingKalmanFilter
-    isi_generator: object = None
+    autoreg: Callable = StreamingKalmanFilter
+    isi_generator: Iterable[float]  = (1.,)
     exit_time: float = 60
     decay_rate: float = .8
     prosvd_k: int = 10
@@ -384,6 +385,7 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
 
     stim_time_rng, other_rng = rng.spawn(2)
 
+    isi_generator = cycle(config.isi_generator)
 
     sr = StimRegressor(
         autoreg=config.autoreg(),
@@ -410,7 +412,7 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
     stim_timer = StimTimer(
         initial_nostim_period=config.initial_nostim_period,
         stim_timing_method=config.stim_timing_method,
-        inter_stim_interval_generator=config.isi_generator,
+        inter_stim_interval_generator=isi_generator,
     )
 
     sim_stim_calculator = SimulatedStimResponseCalculator(
@@ -599,3 +601,27 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
 
 
     return SimulationResult(sr=sr, stim_designer=stim_designer, log=log, config=config)
+
+
+def run_simulations(data, rng, to_run, n_runs=1, show_tqdm=False) -> dict[str, list[SimulationResult]]:
+    """
+    >>> rng = np.random.default_rng(0)
+    >>> common = SimStimConfig(prosvd_k=2)
+    >>> to_run = {
+    ...     'a': common.update(attempt_correction=True),
+    ...     'b': common.update(attempt_correction=False)
+    ... }
+    >>> data = ArrayWithTime(rng.normal(size=(100, 3)), t=np.arange(100)/100)
+    >>> simulations = run_simulations(data, rng, to_run)
+    """
+    srs = {}
+    with tqdm(total=len(to_run) * n_runs, disable=not show_tqdm) as pbar:
+        for key, config in to_run.items():
+            sub_rng = copy.deepcopy(rng)
+            srs[key] = []
+            for _ in range(n_runs):
+                sub_rng, inner_sub_rng = sub_rng.spawn(2)
+                srs[key].append(run_sim_stim(input_array=data, rng=inner_sub_rng, config=config))
+                pbar.update(1)
+
+    return srs

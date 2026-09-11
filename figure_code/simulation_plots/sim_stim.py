@@ -11,21 +11,8 @@ import numpy as np
 import pandas as pd
 from gould_2026.stim_designer import OptimizationMethod
 from gould_2026.sim_stim import run_sim_stim, SimulationResult
+
 new_make_sr = run_sim_stim
-
-def run_simulations(data, rng, to_run, n_runs=1, show_tqdm=False):
-    srs = {}
-    with tqdm.tqdm(total=len(to_run) * n_runs, disable=not show_tqdm) as pbar:
-        for key, config in to_run.items():
-            sub_rng = copy.deepcopy(rng)
-            srs[key] = []
-            for _ in range(n_runs):
-                sub_rng, inner_sub_rng = sub_rng.spawn(2)
-                srs[key].append(run_sim_stim(input_array=data, rng=inner_sub_rng, config=config))
-                pbar.update(1)
-
-    return srs
-
 
 
 def make_sr(*args, **kwargs):
