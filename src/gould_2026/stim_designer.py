@@ -33,6 +33,7 @@ class OptimizationMethod(str, Enum):
     CHEAT_LOWD_VEC = 'cheat_lowd_vec'
     RANDOM_SINGLE_NEURONS = 'cheat_highd_vec_single_neurons'
     RANDOM_MANY_NEURONS = 'cheat_highd_vec_many_neurons'
+    RANDOM_DENSE_GAUSSIAN = 'cheat_highd_vec_dense_gaussian'
 
 
 class StimDesigner:
@@ -47,7 +48,7 @@ class StimDesigner:
             eps1=10 ** -4.5,
             eps2=1e-5,
             n_random=1,
-            n_previous=50,
+            n_previous=100,
 
     ):
         self.rng_seed = rng_seed
@@ -136,27 +137,37 @@ class StimDesigner:
         start_time = time.perf_counter()
         assert len(v.shape) == 2
 
+        if 'u_dimension' in kwargs:
+            u_dimension = kwargs['u_dimension']
+        elif 'equivalent_projection_matrix' in kwargs:
+            u_dimension = kwargs['equivalent_projection_matrix'].shape[0]
+        else:
+            raise ValueError()
+
         l = {}
         if optimization_method is None:
             optimization_method = self.optimization_method
 
         match optimization_method:
             case OptimizationMethod.LBFGS:
-                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=True)
+                u, l = self.design_stim_lbfgs(v, u_dimension=u_dimension, u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=True)
             case OptimizationMethod.LBFGS_UNCONSTRAINED:
-                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
+                u, l = self.design_stim_lbfgs(v, u_dimension=u_dimension, u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=False)
             case OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED:
-                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=True)
+                u, l = self.design_stim_lbfgs(v, u_dimension=u_dimension, u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=False, positive_constrained=True)
             case OptimizationMethod.LBFGS_SPARSE_CONSTRAINED:
-                u, l = self.design_stim_lbfgs(v, u_dimension=kwargs['u_dimension'], u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=False)
+                u, l = self.design_stim_lbfgs(v, u_dimension=u_dimension, u_to_s_function=kwargs['u_to_s_function'], previous_us=kwargs['previous_us'], rng=self.rng, sparse_constrained=True, positive_constrained=False)
             case OptimizationMethod.CHEAT_LOWD_VEC:
                 u = (kwargs['equivalent_projection_matrix'] @ v).flatten()
             case OptimizationMethod.RANDOM_SINGLE_NEURONS:
-                u = numpy.zeros(kwargs['equivalent_projection_matrix'].shape[0])
-                u[self.rng.choice(kwargs['equivalent_projection_matrix'].shape[0])] = 1
+                u = numpy.zeros(u_dimension)
+                u[self.rng.choice(u_dimension)] = 1
             case OptimizationMethod.RANDOM_MANY_NEURONS:
-                u = numpy.zeros(kwargs['equivalent_projection_matrix'].shape[0])
-                u[self.rng.choice(kwargs['equivalent_projection_matrix'].shape[0], size=self.max_l0_norm, replace=False)] = 1
+                u = numpy.zeros(u_dimension)
+                u[self.rng.choice(u_dimension, size=self.max_l0_norm, replace=False)] = 1
+            case OptimizationMethod.RANDOM_DENSE_GAUSSIAN:
+                u = self.rng.normal(size=(u_dimension,))
+                u = u / numpy.abs(u).max()
             case _:
                 raise ValueError()
 

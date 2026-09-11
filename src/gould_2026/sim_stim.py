@@ -3,10 +3,11 @@ from enum import Enum
 import functools
 from types import SimpleNamespace
 from typing import NamedTuple
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import cycle
 import warnings
 import time
+import copy
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -221,10 +222,10 @@ class StimTimer:
 
 
 
-def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType, n_random_init):
+def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desired_stim, equivalent_projection_matrix, current_t, u_to_s_model_type: StimResponseModelType, n_random_init, init_optimization_method=OptimizationMethod.RANDOM_MANY_NEURONS):
     optimization_method = stim_designer.optimization_method
     if sr.stim_reg.n_observed <= n_random_init and u_to_s_model_type == StimResponseModelType.KERNEL_REGRESSED:
-        optimization_method = OptimizationMethod.RANDOM_MANY_NEURONS
+        optimization_method = init_optimization_method
 
     if optimization_method in {OptimizationMethod.LBFGS, OptimizationMethod.LBFGS_UNCONSTRAINED, OptimizationMethod.LBFGS_POSITIVE_CONSTRAINED, OptimizationMethod.LBFGS_SPARSE_CONSTRAINED}:
         stim_reg = sr.stim_reg
@@ -241,7 +242,7 @@ def sim_stim_design_stim(stim_designer: StimDesigner, sr, stim_magnitude, desire
         designed_stim = stim_designer.design_stim(desired_stim, u_to_s_function=u_to_s_function, u_dimension=equivalent_projection_matrix.shape[0], previous_us=previous_us)
     elif optimization_method == OptimizationMethod.CHEAT_LOWD_VEC:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix)
-    elif optimization_method in {OptimizationMethod.RANDOM_MANY_NEURONS, OptimizationMethod.RANDOM_SINGLE_NEURONS}:
+    elif optimization_method in {OptimizationMethod.RANDOM_MANY_NEURONS, OptimizationMethod.RANDOM_SINGLE_NEURONS, OptimizationMethod.RANDOM_DENSE_GAUSSIAN}:
         designed_stim = stim_designer.design_stim(desired_stim, equivalent_projection_matrix=equivalent_projection_matrix, optimization_method=optimization_method)
     else:
         raise ValueError()
@@ -275,7 +276,6 @@ class SimStimConfig:
     regressor_stim_delay: int = 0
     optimization_method: OptimizationMethod = OptimizationMethod.LBFGS
     u_to_s_model_type: StimResponseModelType = StimResponseModelType.IDENTITY
-    design_type: str = None  # TODO: currently unused, kept for parity with the old signature
     true_S: StimResponseType = StimResponseType.IDENTITY
     stim_timing_method: str = 'random'
     n_random_init: int = 10
@@ -290,6 +290,11 @@ class SimStimConfig:
     v_design_use_full_u_s_map: bool = False
     delay_switch_time: float = None
     delay_switch_amount: int = 0
+    steady_state_prosvd: bool = False
+    init_optimization_method: OptimizationMethod = OptimizationMethod.RANDOM_MANY_NEURONS
+
+    def update(self, **kwargs):
+        return replace(copy.deepcopy(self), **kwargs)
 
 
 class SimulationResult(NamedTuple):
@@ -298,43 +303,8 @@ class SimulationResult(NamedTuple):
     log: dict
     config: SimStimConfig
 
-# @save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
-def run_sim_stim(
-        input_array,
-        rng,
-        autoreg=StreamingKalmanFilter,
-        stim_rate=1, # TODO: refactor out
-        regular_stim_iter=None,  # TODO: refactor out
-        isi_generator=None,
-        exit_time=60,
-        decay_rate=.8,
-        prosvd_k=10,
-        stim_magnitude=10,
-        max_l0_norm=30,
-        attempt_correction=True,
-        heed_stimuli=True,
-        stim_time_delay=0,
-        regressor_stim_delay=0,
-        design_method=None, # TODO: refactor out
-        optimization_method=OptimizationMethod.LBFGS,
-        u_to_s_model_type=StimResponseModelType.IDENTITY,
-        design_type=None,
-        true_S=StimResponseType.IDENTITY,
-        stim_timing_method='random',
-        n_random_init=10,
-        stim_direction_type=StimDirectionType.FIRST,
-        initial_nostim_period=5,
-        stim_reg_maxlen=500,
-        smoothing_tau=None,
-        centerer_init_size=0,
-        last_dim_red='prosvd',
-        show_tqdm=False,
-        behavioral_data=ArrayWithTime(np.zeros((2,1)), [np.inf, np.inf]) * np.nan,
-        beh_decay_rate=.8,
-        v_design_use_full_u_s_map=False,
-        delay_switch_time=None,
-        delay_switch_amount=0,
-):
+@save_to_cache('run_sim_stim', location='/mnt/data/gould_2026_cache/')
+def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = ArrayWithTime(np.zeros((2, 1)), [np.inf, np.inf]) * np.nan,):
     _init_time = time.perf_counter()
     timing_log = SimpleNamespace()
     timing_log.init_time = _init_time
@@ -347,67 +317,70 @@ def run_sim_stim(
     timing_log.in_sim_time = []
 
 
-    assert (regular_stim_iter is not None) + (stim_rate is not None) + (isi_generator is not None) == 1
-    if stim_rate:
-        isi_generator = cycle([1/stim_rate])
-    elif regular_stim_iter:
-        isi_generator = map(_hz_to_isi, regular_stim_iter)
-        assert stim_timing_method == 'regular'
-        stim_timing_method = 'isi'
-    del regular_stim_iter, stim_rate
+    # assert (regular_stim_iter is not None) + (stim_rate is not None) + (isi_generator is not None) == 1
+    # if stim_rate:
+    #     isi_generator = cycle([1/stim_rate])
+    # elif regular_stim_iter:
+    #     isi_generator = map(_hz_to_isi, regular_stim_iter)
+    #     assert stim_timing_method == 'regular'
+    #     stim_timing_method = 'isi'
+    # del regular_stim_iter, stim_rate
+    #
+    # _optimization_method, _u_to_s_model_type = {
+    #     'optimized learned u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.KERNEL_REGRESSED),
+    #     'optimized identity u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.IDENTITY),
+    #     'direct cheating': (OptimizationMethod.CHEAT_LOWD_VEC, StimResponseModelType.IDENTITY),
+    #     'single neurons': (OptimizationMethod.RANDOM_SINGLE_NEURONS, None),
+    #     'many neurons': (OptimizationMethod.RANDOM_MANY_NEURONS, None),
+    #     None: (optimization_method, u_to_s_model_type),
+    # }[design_method]
+    # # single neurons
+    # # many neurons
+    # del design_method
+    # if optimization_method is not None:
+    #     assert optimization_method == _optimization_method
+    # if _u_to_s_model_type is not None:
+    #     assert u_to_s_model_type == _u_to_s_model_type
+    #
+    # config = SimStimConfig(
+    #     autoreg=autoreg,
+    #     isi_generator=isi_generator,
+    #     exit_time=exit_time,
+    #     decay_rate=decay_rate,
+    #     prosvd_k=prosvd_k,
+    #     stim_magnitude=stim_magnitude,
+    #     max_l0_norm=max_l0_norm,
+    #     attempt_correction=attempt_correction,
+    #     heed_stimuli=heed_stimuli,
+    #     stim_time_delay=stim_time_delay,
+    #     regressor_stim_delay=regressor_stim_delay,
+    #     optimization_method=_optimization_method,
+    #     u_to_s_model_type=_u_to_s_model_type,
+    #     design_type=design_type,
+    #     true_S=true_S,
+    #     stim_timing_method=stim_timing_method,
+    #     n_random_init=n_random_init,
+    #     stim_direction_type=stim_direction_type,
+    #     initial_nostim_period=initial_nostim_period,
+    #     stim_reg_maxlen=stim_reg_maxlen,
+    #     smoothing_tau=smoothing_tau,
+    #     centerer_init_size=centerer_init_size,
+    #     last_dim_red=last_dim_red,
+    #     show_tqdm=show_tqdm,
+    #     beh_decay_rate=beh_decay_rate,
+    #     v_design_use_full_u_s_map=v_design_use_full_u_s_map,
+    #     delay_switch_time=delay_switch_time,
+    #     delay_switch_amount=delay_switch_amount,
+    #     steady_state_prosvd=steady_state_prosvd,
+    # )
+    # del (autoreg, isi_generator, exit_time, decay_rate, prosvd_k, stim_magnitude, max_l0_norm,
+    #      attempt_correction, heed_stimuli, stim_time_delay, regressor_stim_delay, optimization_method,
+    #      u_to_s_model_type, design_type, true_S, stim_timing_method, n_random_init, stim_direction_type,
+    #      initial_nostim_period, stim_reg_maxlen, smoothing_tau, centerer_init_size, last_dim_red, show_tqdm,
+    #      beh_decay_rate, v_design_use_full_u_s_map, delay_switch_time, delay_switch_amount,
+    #      _optimization_method, _u_to_s_model_type, steady_state_prosvd)
 
-    _optimization_method, _u_to_s_model_type = {
-        'optimized learned u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.KERNEL_REGRESSED),
-        'optimized identity u_to_s': (OptimizationMethod.LBFGS, StimResponseModelType.IDENTITY),
-        'direct cheating': (OptimizationMethod.CHEAT_LOWD_VEC, StimResponseModelType.IDENTITY),
-        'single neurons': (OptimizationMethod.RANDOM_SINGLE_NEURONS, None),
-        'many neurons': (OptimizationMethod.RANDOM_MANY_NEURONS, None),
-        None: (optimization_method, u_to_s_model_type),
-    }[design_method]
-    # single neurons
-    # many neurons
-    del design_method
-    if optimization_method is not None:
-        assert optimization_method == _optimization_method
-    if _u_to_s_model_type is not None:
-        assert u_to_s_model_type == _u_to_s_model_type
-
-    config = SimStimConfig(
-        autoreg=autoreg,
-        isi_generator=isi_generator,
-        exit_time=exit_time,
-        decay_rate=decay_rate,
-        prosvd_k=prosvd_k,
-        stim_magnitude=stim_magnitude,
-        max_l0_norm=max_l0_norm,
-        attempt_correction=attempt_correction,
-        heed_stimuli=heed_stimuli,
-        stim_time_delay=stim_time_delay,
-        regressor_stim_delay=regressor_stim_delay,
-        optimization_method=_optimization_method,
-        u_to_s_model_type=_u_to_s_model_type,
-        design_type=design_type,
-        true_S=true_S,
-        stim_timing_method=stim_timing_method,
-        n_random_init=n_random_init,
-        stim_direction_type=stim_direction_type,
-        initial_nostim_period=initial_nostim_period,
-        stim_reg_maxlen=stim_reg_maxlen,
-        smoothing_tau=smoothing_tau,
-        centerer_init_size=centerer_init_size,
-        last_dim_red=last_dim_red,
-        show_tqdm=show_tqdm,
-        beh_decay_rate=beh_decay_rate,
-        v_design_use_full_u_s_map=v_design_use_full_u_s_map,
-        delay_switch_time=delay_switch_time,
-        delay_switch_amount=delay_switch_amount,
-    )
-    del (autoreg, isi_generator, exit_time, decay_rate, prosvd_k, stim_magnitude, max_l0_norm,
-         attempt_correction, heed_stimuli, stim_time_delay, regressor_stim_delay, optimization_method,
-         u_to_s_model_type, design_type, true_S, stim_timing_method, n_random_init, stim_direction_type,
-         initial_nostim_period, stim_reg_maxlen, smoothing_tau, centerer_init_size, last_dim_red, show_tqdm,
-         beh_decay_rate, v_design_use_full_u_s_map, delay_switch_time, delay_switch_amount,
-         _optimization_method, _u_to_s_model_type)
+    config = copy.deepcopy(config) # make sure we don't modify the original config object
 
     stim_time_rng, other_rng = rng.spawn(2)
 
@@ -473,6 +446,10 @@ def run_sim_stim(
     else:
         raise ValueError()
 
+    if config.steady_state_prosvd:
+        pro.offline_run_on(input_array)
+        pro.freeze()
+
     decided_stims = []
     stims = []
     latents = []
@@ -519,7 +496,7 @@ def run_sim_stim(
                         rng=other_rng,
                         max_l0_norm=stim_designer.max_l0_norm
                     )
-                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type, n_random_init=config.n_random_init)
+                    designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type, n_random_init=config.n_random_init, init_optimization_method=config.init_optimization_method)
                     instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
                     instantaneous_stim = np.zeros(input_array.shape[1])
