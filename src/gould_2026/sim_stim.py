@@ -219,7 +219,7 @@ class StimTimer:
             return kwargs['stim_time_rng'].random() < 1 / next(self.inter_stim_interval_generator) * kwargs[
                 'input_array_dt']
         else:
-            raise ValueError()
+            raise ValueError()  # you may need to change stim_timing_method from 'regular' to 'isi'
 
 
 
