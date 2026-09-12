@@ -129,7 +129,11 @@ class StimDesigner:
                 best_loss = loss
         u = results[best_idx]
 
-        return u, {'s': u_to_s_function(u), 'v': v, 'sparse_constrained': sparse_constrained, 'positive_constrained': positive_constrained, 'previous_performances': previous_performances, 'radii':radii, 'best_idx':best_idx, 'losses': losses}
+        log = {'s': u_to_s_function(u), 'v': v, 'sparse_constrained': sparse_constrained, 'positive_constrained': positive_constrained, 'previous_performances': previous_performances, 'radii':radii, 'best_idx':best_idx, 'losses': losses}
+        if self.should_log:
+            log['previous_us'] = previous_us
+
+        return u, log
 
 
 
