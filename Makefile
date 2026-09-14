@@ -51,26 +51,44 @@ output/zong_stim.svg:
 		figure_code/simulation_plots/zong_stim.ipynb /dev/null
 
 
+
 output/compare_opt_by_target.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --n-runs $(SIM_N_RUNS)
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p closed False \
+		-p optimization_method lbfgs \
+		-p n_runs $(SIM_N_RUNS) \
+		-p output1_violinplots $@ \
+		figure_code/simulation_plots/target_comparison.ipynb /tmp/output.ipynb
+
 
 output/compare_opt_by_target_closed.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --closed-loop --n-runs $(SIM_N_RUNS)
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p closed True \
+		-p optimization_method lbfgs \
+		-p n_runs $(SIM_N_RUNS) \
+		-p output1_violinplots $@ \
+		figure_code/simulation_plots/target_comparison.ipynb /tmp/output.ipynb
+
 
 output/compare_opt_by_target_positive_constrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_positive_constrained --n-runs $(SIM_N_RUNS)
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p closed False \
+		-p optimization_method lbfgs_positive_constrained \
+		-p n_runs $(SIM_N_RUNS) \
+		-p output1_violinplots $@ \
+		figure_code/simulation_plots/target_comparison.ipynb /tmp/output.ipynb
 
 output/compare_opt_by_target_unconstrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained --n-runs $(SIM_N_RUNS)
-
-output/compare_opt_by_target_closed_unconstrained.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot compare_opt_by_target --optimization-method jaxopt_unconstrained --closed-loop --n-runs $(SIM_N_RUNS)
-
-output/cross_method_target_tests.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot cross_method_target_tests --n-runs $(SIM_N_RUNS)
-
-output/cross_method_target_tests_closed.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot cross_method_target_tests --closed-loop --n-runs $(SIM_N_RUNS)
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p closed False \
+		-p optimization_method lbfgs_unconstrained \
+		-p n_runs $(SIM_N_RUNS) \
+		-p output1_violinplots $@ \
+		figure_code/simulation_plots/target_comparison.ipynb /tmp/output.ipynb
 
 
 output/starburst_constrained.svg:
