@@ -166,6 +166,8 @@ output/draelos25_1step.svg:
 	-p output7_response_pairwise_plot output/draelos25_response_pairwise.svg \
 	-p output8_quiver_plot output/draelos25_quiver_plot.svg \
 	-p output9_mantel_hist output/draelos25_mantel_hist.svg \
+	-p output10_inferred_stim_response_map output/draelos25_inferred_stim_response_map.svg \
+	-p output11_individual_stims output/draelos25_individual_stims.svg \
 	 figure_code/behavior/draelos25.ipynb /tmp/output.ipynb
 
 # fig:closed
