@@ -5,6 +5,7 @@ import warnings
 from jax.tree_util import Partial
 import optax
 import time
+from gould_2026.estimator import ArrayWithTime
 
 
 @jax.jit
@@ -143,7 +144,16 @@ class KernelRegressor:
             return
 
         if self.log_level >= 2:
-            self.log['preq_errors'].append(y - self.predict(x))
+            pred = y - self.predict(x)
+            if isinstance(y, ArrayWithTime) and isinstance(y, ArrayWithTime):
+                warnings.warn('ambiguous case: both x and y are ArrayWithTime, using y')
+                pred = ArrayWithTime.from_transformed_data(pred, y)
+            elif isinstance(y, ArrayWithTime):
+                pred = ArrayWithTime.from_transformed_data(pred, y)
+            elif isinstance(x, ArrayWithTime):
+                pred = ArrayWithTime.from_transformed_data(pred, x)
+            pred = ArrayWithTime.from_transformed_data(pred, y)
+            self.log['preq_errors'].append(pred)
 
         if self.input_histories is None:
             self.input_histories = [numpy.zeros(shape=(self.maxlen, sub_x.size)) * numpy.nan for sub_x in x]
