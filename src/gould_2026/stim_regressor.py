@@ -74,10 +74,10 @@ class StimRegressor(Predictor):
         super().__init__(input_streams=input_streams, output_streams=output_streams, log_level=log_level, check_dt=check_dt, n_steps_to_predict=n_steps_to_predict)
 
         if autoreg is None:
-            autoreg = StreamingKalmanFilter()
+            autoreg = StreamingKalmanFilter(log_level=log_level, check_dt=True)
         self.autoreg: Predictor = autoreg
         if stim_reg is None:
-            stim_reg = KernelRegressor(maxlen=100)
+            stim_reg = KernelRegressor(maxlen=100, log_level=log_level)
         self.stim_reg: KernelRegressor = stim_reg
         self.attempt_correction = attempt_correction
         self.heed_stimuli = heed_stimuli
