@@ -47,3 +47,7 @@ def angle_between(v1, v2, radians=False, subspace=False):
     if subspace:
         angle = min(angle, np.pi - angle)
     return angle * (180.0 / np.pi if not radians else 1.0)
+
+def rotation_matrix(theta):
+    return np.array([[np.cos(theta), -np.sin(theta)],
+              [np.sin(theta), np.cos(theta)]])
