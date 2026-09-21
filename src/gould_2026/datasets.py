@@ -55,7 +55,7 @@ class LDS:
         assert np.allclose(self.Q, self.Q.T)
         assert np.allclose(self.W, self.W.T)
 
-    def simulate(self, n_steps, initial_state=None, U=None, rng=None):
+    def simulate(self, n_steps, initial_state=None, U=None, rng=None, custom_dynamics=None):
         if rng is None:
             rng = np.random.default_rng()
 
@@ -78,7 +78,7 @@ class LDS:
 
         state = states[0]
         for i in range(n_steps):
-            state, observation, u = self.simulate_step(state, rng, u_function, i, use_state_dynamics=i != 0, add_centers=False)
+            state, observation, u = self.simulate_step(state, rng, u_function, i, use_state_dynamics=i != 0, add_centers=False, custom_dynamics=custom_dynamics)
             states[i] = state
             observations[i] = observation
             control[i] = u
@@ -86,9 +86,11 @@ class LDS:
         return states + self.state_center, observations + self.observation_center, control
         # return ArrayWithTime.from_notime(states + self.state_center), ArrayWithTime.from_notime(observations + self.observation_center), ArrayWithTime.from_notime(control)
 
-    def simulate_step(self, state, rng, u_function=None, i=None, use_state_dynamics=True, add_centers=True):
+    def simulate_step(self, state, rng, u_function=None, i=None, use_state_dynamics=True, add_centers=True, custom_dynamics=None):
         if add_centers:
             state = state - self.state_center
+        if custom_dynamics is None:
+            custom_dynamics = lambda x: x
 
         u = np.array([])
         if u_function is not None and isinstance(u_function, np.ndarray):
@@ -98,6 +100,7 @@ class LDS:
 
         if use_state_dynamics:  # I don't want this sometimes on the first iteration
             state = state @ self.A
+            state = custom_dynamics(state)
             random_jitter = rng.normal(size=self.A.shape[1]) @ self.W_cholesky
             state = state + random_jitter
 
@@ -147,7 +150,7 @@ class LDS:
         return LDS(A, C, W, Q, B=B)
 
     @classmethod
-    def run_nest_dynamical_system(cls, rotations, transitions_per_rotation=30 + 1 / np.pi, stim_magnitude=1, stims_per_rotation=1, radius=5, u_function=None, rng=None, early_shift=1e-12, noise=0.05, theta_0=None, transition_time=30):
+    def run_nest_dynamical_system(cls, rotations, transitions_per_rotation=30 + 1 / np.pi, stim_magnitude=1, stims_per_rotation=1, radius=5, u_function=None, rng=None, early_shift=1e-12, noise=0.05, theta_0=None, transition_time=30, encourage_radius=True):
         rng = rng if rng is not None else np.random.default_rng()
         dynamics_rng, stim_rng = rng.spawn(2)
         if theta_0 is None:
@@ -159,60 +162,16 @@ class LDS:
         stim = t * 0
         stim[stim_rng.choice(stim.shape[0], size=int(stims_per_rotation * N / transitions_per_rotation), replace=False)] = 1
 
-        if u_function == 'curvy':
-            def u_function(lds, state, i, rng):
-                u = np.zeros(lds.B.shape[0])
-                u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
-                return u
-        elif u_function == 'curvy_flips':
-            def u_function(lds, state, i, rng):
-                u = np.zeros(lds.B.shape[0])
-                state = np.array(state)
-                transition = transition_time * transitions_per_rotation
-                if i <= transition:
-                    rotation_angle = 0
-                else:
-                    rotation_angle = np.pi
+        u_function = _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation, lds)
 
-                rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
-                                            [np.sin(rotation_angle),  np.cos(rotation_angle)]])
-                state[:2] = rotation_matrix @ state[:2]
+        if encourage_radius:
+            def custom_dynamics(state):
+                d = np.linalg.norm(state[:2]) - radius
+                return np.squeeze(state - np.hstack([state[:2], 0]) * d * .003)
+        else:
+            custom_dynamics = lambda x: x
 
-                u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
-                return u
-        elif u_function == 'curvy_spins':
-            def u_function(lds, state, i, rng):
-                u = np.zeros(lds.B.shape[0])
-
-                state = np.array(state)
-
-                transition = transition_time * transitions_per_rotation
-                if i <= transition:
-                    rotation_angle = 0
-                else:
-                    rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
-
-                rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
-                                            [np.sin(rotation_angle),  np.cos(rotation_angle)]])
-                state[:2] = rotation_matrix @ state[:2]
-
-                u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
-                return u
-        elif u_function == 'curvy_alld_resp':
-            def u_function(lds, state, i, rng):
-                u = np.zeros(lds.B.shape[0])
-                state = np.array(state)
-                transition = transition_time * transitions_per_rotation
-                if i <= transition:
-                    u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
-                else:
-                    u[:] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2]) / np.sqrt(lds.B.shape[0])
-
-                return u
-        elif u_function is None:
-            u_function = lambda **_: np.zeros(lds.B.shape[0])
-
-        states, observations, received_stim = lds.simulate(N, initial_state=[radius * np.cos(theta_0), radius * np.sin(theta_0), 0], U=u_function, rng=dynamics_rng)
+        states, observations, received_stim = lds.simulate(N, initial_state=[radius * np.cos(theta_0), radius * np.sin(theta_0), 0], U=u_function, rng=dynamics_rng, custom_dynamics=custom_dynamics)
 
         assert early_shift == 0 or np.diff(t).mean() / early_shift > 100
 
@@ -222,6 +181,61 @@ class LDS:
 
         return X, Y, stim
 
+def _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation, lds):
+    if u_function == 'curvy':
+        def u_function(lds, state, i, rng):
+            u = np.zeros(lds.B.shape[0])
+            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            return u
+    elif u_function == 'curvy_flips':
+        def u_function(lds, state, i, rng):
+            u = np.zeros(lds.B.shape[0])
+            state = np.array(state)
+            transition = transition_time * transitions_per_rotation
+            if i <= transition:
+                rotation_angle = 0
+            else:
+                rotation_angle = np.pi
+
+            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                        [np.sin(rotation_angle),  np.cos(rotation_angle)]])
+            state[:2] = rotation_matrix @ state[:2]
+
+            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            return u
+    elif u_function == 'curvy_spins':
+        def u_function(lds, state, i, rng):
+            u = np.zeros(lds.B.shape[0])
+
+            state = np.array(state)
+
+            transition = transition_time * transitions_per_rotation
+            if i <= transition:
+                rotation_angle = 0
+            else:
+                rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
+
+            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                        [np.sin(rotation_angle),  np.cos(rotation_angle)]])
+            state[:2] = rotation_matrix @ state[:2]
+
+            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            return u
+    elif u_function == 'curvy_alld_resp':
+        def u_function(lds, state, i, rng):
+            u = np.zeros(lds.B.shape[0])
+            state = np.array(state)
+            transition = transition_time * transitions_per_rotation
+            if i <= transition:
+                u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            else:
+                u[:] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2]) / np.sqrt(lds.B.shape[0])
+
+            return u
+    elif u_function is None:
+        u_function = lambda **_: np.zeros(lds.B.shape[0])
+
+    return u_function
 
 def generate_circle_embedded_in_high_d(rng, m=1000, n=4, stddev=1, transitions_per_rotation=10):
     lds = LDS.circular_lds(transitions_per_rotation=transitions_per_rotation, obs_d=n, process_noise=0, obs_noise=stddev, rng=rng)

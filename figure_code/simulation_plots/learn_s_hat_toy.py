@@ -20,6 +20,7 @@ n_rotations = 50
 noise_variance = 0.05
 stims_per_rotation = 2
 stim_magnitude = 10
+radius = 10
 
 class StimRegressorWithExtraLogging(StimRegressor):
     def __init__(self, *args, **kwargs):
@@ -84,7 +85,7 @@ def make_ideal_nostim_srs(rng, n_runs=1, streaming=False, show_tqdm=False):
     ideal_srs = []
     for _ in tqdm.trange(n_runs, disable=not show_tqdm):
         if not streaming:
-            X, Y, stim = LDS.run_nest_dynamical_system(n_rotations, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
+            X, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
             kf = StreamingKalmanFilter(steps_between_refits=float('inf'))
             kf.fit(Y, Y)  # Y, Y?
 
@@ -94,7 +95,7 @@ def make_ideal_nostim_srs(rng, n_runs=1, streaming=False, show_tqdm=False):
             ideal_srs.append(sr_ideal.finalize_log(stim))
         else:
             sr_ideal = StimRegressor(autoreg=StreamingKalmanFilter(), log_level=2, check_dt=True)
-            _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
+            _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
             sr_ideal.offline_run_on([(Y, 'X'), (stim, 'stim')], convinient_return=False, show_tqdm=False)
             ideal_srs.append(sr_ideal.finalize_log(stim))
 
@@ -107,10 +108,10 @@ def true_S(point):
     true[2] = stim_magnitude * point[0] / np.linalg.norm(point[:2])
     return true
 
-def make_s_hat_error_function(rng, n_runs=10, n_points=200):
+def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
     previous_Ys = []
     for _ in range(n_runs):
-        _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function='curvy', noise=noise_variance)
+        _, Y, stim = LDS.run_nest_dynamical_system(n_rotations,radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance)
         previous_Ys.append(Y)
 
     test_points = np.vstack(previous_Ys)
@@ -128,7 +129,7 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200):
     return s_hat_error_function
 
 def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations, transition_time=30):
-    _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time)
+    _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time)
 
     sr1 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True)
     sr2 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True, attempt_correction=False)
@@ -275,7 +276,7 @@ if __name__ == '__main__':
             #     fhan.write(to_tex_command(key='s_hat_toy_rmse_comparison_table', value=table_text))
 
         case 'manifold-error':
-            srs = make_srs(np.random.default_rng(2), n_runs=1, show_tqdm=False, add_s_hat_error_function=True)
+            srs = make_srs(np.random.default_rng(2), n_runs=1, show_tqdm=False, add_s_hat_error_function=True, u_function='curvy')
             fig, test_string = plot_manifold_error(srs)
             with args.output.with_suffix('.txt').open('w') as fhan:
                 fhan.write(test_string.getvalue())
