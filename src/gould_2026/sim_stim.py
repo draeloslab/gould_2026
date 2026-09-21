@@ -293,6 +293,8 @@ class SimStimConfig:
     delay_switch_amount: int = 0
     steady_state_prosvd: bool = False
     init_optimization_method: OptimizationMethod = OptimizationMethod.RANDOM_MANY_NEURONS
+    enable_behavior: bool = False
+    beh_reg_len: int = 2000
 
     def update(self, **kwargs):
         return replace(copy.deepcopy(self), **kwargs)
@@ -402,6 +404,9 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
     # or add a `stim_autoreg_n_steps=0` parameter to this function and use it here.
     # from .stim_regressor import StimAutoReg
     # sr.stim_autoreg = StimAutoReg(n_steps_to_consider=6)
+
+    behavior_regressor = KernelRegressor(log_level=2, maxlen=config.beh_reg_len)
+
     stim_designer = StimDesigner(
         max_l0_norm=config.max_l0_norm,
         rng_seed=other_rng.integers(2 ** 32),
@@ -554,6 +559,8 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
 
                 timing_log.per_loop[-1] = time.perf_counter() - timing_log.per_loop[-1]
             elif stream == 'behavioral_data':
+                assert config.enable_behavior # guard, behavior is an edge application and not fully supported yet
+
                 def beh_S(point, bottom=-1.24, top=2.4):
                     point = point / 8
                     quadratic = point[0] ** 2 - 4 * point[1] ** 2
@@ -564,14 +571,19 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
                     else:
                         return surface
 
-                if data.t > 500 and len(behavior) % 1000 == 1:
-                    true_beh_stim_result = beh_S(latents[-1][0])
+                neural_state = latents[-1][0]
+
+                if data.t > 550:
+                    true_beh_stim_result = beh_S(neural_state)
                 else:
                     true_beh_stim_result = 0
 
 
                 beh_sim_stim_adder.register_stim(true_beh_stim_result)
                 data = beh_sim_stim_adder.run_for_X(data)
+
+                if data.t > 550:
+                    behavior_regressor.observe(neural_state, data)
 
                 behavior.append(data)
             else:
@@ -598,7 +610,7 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
 
     sr.log['pred_error'] = ArrayWithTime.from_list(sr.log['pred_error'])
 
-
+    log['behavior_regressor'] = behavior_regressor
 
     return SimulationResult(sr=sr, stim_designer=stim_designer, log=log, config=config)
 
