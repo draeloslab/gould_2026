@@ -113,12 +113,15 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200):
         _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function='curvy', noise=noise_variance)
         previous_Ys.append(Y)
 
+    test_points = np.vstack(previous_Ys)
+    test_times = np.hstack([y.t for y in previous_Ys])
+    test_indices = rng.choice(test_times.size, replace=False, size=n_points)
+    test_points, test_times = test_points[test_indices], test_times[test_indices]
 
-    test_points = rng.choice(np.vstack(previous_Ys), replace=False, size=n_points)
     def s_hat_error_function(self:StimRegressor):
         s_hat_errors = []
-        for point in test_points:
-            e = self.stim_reg.predict(np.hstack([point, np.array([1])])) - true_S(point)
+        for point, t in zip(test_points, test_times):
+            e = self.stim_reg.predict([point, np.array([1]), t]) - true_S(point)
             s_hat_errors.append(e)
         return s_hat_errors
 
@@ -132,8 +135,8 @@ def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_r
     sr3 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True, attempt_correction=False, heed_stimuli=False)
 
     if add_s_hat_error_function:
-        sr3.stim_reg.observe(np.zeros(4), np.zeros(3))  # setting a zero prior for the manifold comparison
-        s_hat_error_function = make_s_hat_error_function(rng)
+        sr3.stim_reg.observe([np.zeros(3), np.array([0]), np.array([0])], np.zeros(3))  # setting a zero prior for the manifold comparison
+        s_hat_error_function = make_s_hat_error_function(rng, u_function=u_function)
         sr1.s_hat_error_function = s_hat_error_function
         # sr2.s_hat_error_function = s_hat_error_function  # this just slows things down, we don't use this comparison
         sr3.s_hat_error_function = s_hat_error_function

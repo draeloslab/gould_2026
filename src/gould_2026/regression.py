@@ -94,7 +94,7 @@ class VanillaOnlineRegressor:
 @jax.jit
 def _predict(x, input_histories, output_history, valid, log_length_scales):
     log_weights = 0.0
-    for (sub_x, history, length_scale) in zip(x, input_histories, jnp.exp(log_length_scales)):
+    for (sub_x, history, length_scale) in zip(x, input_histories, jnp.exp(log_length_scales), strict=True):
         diffs = history - jnp.squeeze(sub_x)
         sq_distances = jnp.sum(jnp.square(diffs), axis=1)
         log_weights = log_weights - length_scale * sq_distances
