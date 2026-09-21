@@ -12,6 +12,8 @@ import pandas as pd
 from collections import deque
 import datetime
 import copy
+from enum import Enum
+from collections.abc import Callable
 
 import numpy as np
 from scipy.stats import special_ortho_group
@@ -162,7 +164,7 @@ class LDS:
         stim = t * 0
         stim[stim_rng.choice(stim.shape[0], size=int(stims_per_rotation * N / transitions_per_rotation), replace=False)] = 1
 
-        u_function = _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation, lds)
+        u_function = _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation)
 
         if encourage_radius:
             def custom_dynamics(state):
@@ -181,14 +183,25 @@ class LDS:
 
         return X, Y, stim
 
-def _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation, lds):
-    if u_function == 'curvy':
-        def u_function(lds, state, i, rng):
+class NestDynamicsUFunction(str, Enum):
+    curvy = 'curvy'
+    curvy_flips = 'curvy_flips'
+    curvy_spins = 'curvy_spins'
+    curvy_alld_resp = 'curvy_alld_resp'
+    # 'curvy_more_noisy'
+    # 'curvy_flip_from start'
+
+def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude, transition_time, transitions_per_rotation) -> Callable[[LDS, np.ndarray, int, np.random.Generator], np.ndarray]:
+    u_function = NestDynamicsUFunction(u_function)
+
+    if u_function == NestDynamicsUFunction.curvy:
+        def u_given_stim(lds, state, i, rng):
             u = np.zeros(lds.B.shape[0])
-            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
             return u
-    elif u_function == 'curvy_flips':
-        def u_function(lds, state, i, rng):
+
+    elif u_function == NestDynamicsUFunction.curvy_flips:
+        def u_given_stim(lds, state, i, rng):
             u = np.zeros(lds.B.shape[0])
             state = np.array(state)
             transition = transition_time * transitions_per_rotation
@@ -201,10 +214,10 @@ def _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, tra
                                         [np.sin(rotation_angle),  np.cos(rotation_angle)]])
             state[:2] = rotation_matrix @ state[:2]
 
-            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
             return u
-    elif u_function == 'curvy_spins':
-        def u_function(lds, state, i, rng):
+    elif u_function == NestDynamicsUFunction.curvy_spins:
+        def u_given_stim(lds, state, i, rng):
             u = np.zeros(lds.B.shape[0])
 
             state = np.array(state)
@@ -219,21 +232,37 @@ def _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, tra
                                         [np.sin(rotation_angle),  np.cos(rotation_angle)]])
             state[:2] = rotation_matrix @ state[:2]
 
-            u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
             return u
-    elif u_function == 'curvy_alld_resp':
-        def u_function(lds, state, i, rng):
+
+    elif u_function == NestDynamicsUFunction.curvy_alld_resp:
+        def u_given_stim(lds, state, i, rng):
             u = np.zeros(lds.B.shape[0])
             state = np.array(state)
             transition = transition_time * transitions_per_rotation
             if i <= transition:
-                u[2] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2])
+                u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
             else:
-                u[:] = stim_magnitude * stim[i] * state[0] / np.linalg.norm(state[:2]) / np.sqrt(lds.B.shape[0])
+                u[:] = stim_magnitude * state[0] / np.linalg.norm(state[:2]) / np.sqrt(lds.B.shape[0])
 
             return u
-    elif u_function is None:
-        u_function = lambda **_: np.zeros(lds.B.shape[0])
+    else:
+        raise ValueError()
+    return u_given_stim
+
+
+def _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation):
+    if u_function is None:
+        def u_given_stim(lds, state, i, rng):
+            return np.zeros(lds.B.shape[0])
+    else:
+        u_given_stim = get_nest_u_to_s_given_stim(u_function, stim_magnitude, transition_time, transitions_per_rotation)
+
+    def u_function(lds, state, i, rng):
+        if stim[i]:
+            return u_given_stim(lds, state, i, rng)
+        else:
+            return np.zeros(lds.B.shape[0])
 
     return u_function
 
