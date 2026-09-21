@@ -127,8 +127,12 @@ output/learn_s_hat_toy_1step_flip.svg:
 
 stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
 
-output/learn_s_hat_toy_manifold_error.svg:
-	$(COMMAND) figure_code/simulation_plots/learn_s_hat_toy.py --output $@ --type-of-plot manifold-error
+output/learn_toy_manifold.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p output_1_learn_toy_manifold output/learn_toy_manifold.svg \
+		-p output_2_stat_text output/learn_toy_manifold.txt \
+	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
 
 
 output/show_toy_dataset_curvy.svg:

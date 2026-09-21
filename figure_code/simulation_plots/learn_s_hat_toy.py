@@ -10,6 +10,7 @@ from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
 from gould_2026.stim_regressor import StimRegressor
 from gould_2026.regression import KernelRegressor
 from gould_2026.datasets import LDS
+from gould_2026.utils import rotation_matrix
 import tqdm.auto as tqdm
 
 standard_kinds_of_sr = ['learning from stim', 'ignoring stim samples', 'unaware of stim']
@@ -39,10 +40,6 @@ class StimRegressorWithExtraLogging(StimRegressor):
     def step(self, data, stream=0, return_output_stream=False):
         self.pre_log(data, stream)
         return super().step(data, stream=stream, return_output_stream=return_output_stream)
-
-def rotation_matrix(theta):
-    return np.array([[np.cos(theta), -np.sin(theta)],
-              [np.sin(theta), np.cos(theta)]])
 
 def make_slices_tensor(sr):
     error = sr.log['pred_error']
@@ -112,6 +109,7 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
     previous_Ys = []
     for _ in range(n_runs):
         _, Y, stim = LDS.run_nest_dynamical_system(n_rotations,radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance)
+        Y, _ = ArrayWithTime.align_indices(Y, stim.slice(np.squeeze(stim) == 1), complement=True) # filters for non-stim points
         previous_Ys.append(Y)
 
     test_points = np.vstack(previous_Ys)
@@ -195,7 +193,7 @@ def draw_curvy_surface(true_S=true_S, stim_locations=(), s_hat_observations=(), 
     return fig2, ax2, (cbar.mappable.norm.vmin, cbar.mappable.norm.vmax)
 
 
-from learn_s_hat_plots import plot_onestep_pred_error_decreasing, make_table, plot_manifold_error
+from learn_s_hat_plots import plot_onestep_pred_error_decreasing
 
 
 if __name__ == '__main__':
@@ -259,27 +257,6 @@ if __name__ == '__main__':
             fig2, ax2, c1 = draw_curvy_surface(true_S=functools.partial(spun_true_S, theta=0), stim_locations=stim_locations, s_hat_observations=s_hat_observations, vmin=vmin, vmax=vmax)
             fig2.savefig(args.output.with_stem('toy_curvy'), bbox_inches="tight")
             ax2.cla()
-
-
-
-
-        case '1-step-prediction-table':
-            n_runs = 5
-            srs = make_srs(rng, n_runs=n_runs, show_tqdm=True)
-            srs['ideal'] = make_ideal_nostim_srs(rng, n_runs=n_runs, streaming=False, show_tqdm=True)
-            srs['ideal streaming'] = make_ideal_nostim_srs(rng, n_runs=n_runs, streaming=True, show_tqdm=True)
-            table_text, _, _ = make_table(srs, time_slices=['post-stim', 'non-stim'], space_slices=['stim-d', 'non-stim-d'], make_slices_tensor=make_slices_tensor, show_rows=False, normalize_key='ideal')
-
-            import warnings
-            warnings.warn('depreciated')
-            # with open(args.output,'w') as fhan:
-            #     fhan.write(to_tex_command(key='s_hat_toy_rmse_comparison_table', value=table_text))
-
-        case 'manifold-error':
-            srs = make_srs(np.random.default_rng(2), n_runs=1, show_tqdm=False, add_s_hat_error_function=True, u_function='curvy')
-            fig, test_string = plot_manifold_error(srs)
-            with args.output.with_suffix('.txt').open('w') as fhan:
-                fhan.write(test_string.getvalue())
         case _:
             raise ValueError()
 
