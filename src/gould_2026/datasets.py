@@ -185,55 +185,50 @@ class LDS:
 
 class NestDynamicsUFunction(str, Enum):
     curvy = 'curvy'
+    _curvy_flipped = 'curvy_flipped'
     curvy_flips = 'curvy_flips'
     curvy_spins = 'curvy_spins'
     curvy_alld_resp = 'curvy_alld_resp'
     # 'curvy_more_noisy'
     # 'curvy_flip_from start'
 
+
+def _curvy_spun(lds, state,rotation_angle, stim_magnitude):
+    u = np.zeros(lds.B.shape[0])
+    state = np.array(state)
+    rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                [np.sin(rotation_angle),  np.cos(rotation_angle)]])
+    state[:2] = rotation_matrix @ state[:2]
+
+    u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
+    return u
+
 def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude, transition_time, transitions_per_rotation) -> Callable[[LDS, np.ndarray, int, np.random.Generator], np.ndarray]:
     u_function = NestDynamicsUFunction(u_function)
 
     if u_function == NestDynamicsUFunction.curvy:
         def u_given_stim(lds, state, i, rng):
-            u = np.zeros(lds.B.shape[0])
-            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
-            return u
+            return _curvy_spun(lds, state, 0, stim_magnitude)
 
     elif u_function == NestDynamicsUFunction.curvy_flips:
         def u_given_stim(lds, state, i, rng):
-            u = np.zeros(lds.B.shape[0])
-            state = np.array(state)
             transition = transition_time * transitions_per_rotation
             if i <= transition:
                 rotation_angle = 0
             else:
                 rotation_angle = np.pi
 
-            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
-                                        [np.sin(rotation_angle),  np.cos(rotation_angle)]])
-            state[:2] = rotation_matrix @ state[:2]
+            return _curvy_spun(lds, state, rotation_angle, stim_magnitude)
 
-            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
-            return u
     elif u_function == NestDynamicsUFunction.curvy_spins:
         def u_given_stim(lds, state, i, rng):
-            u = np.zeros(lds.B.shape[0])
-
-            state = np.array(state)
-
             transition = transition_time * transitions_per_rotation
             if i <= transition:
                 rotation_angle = 0
             else:
                 rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
 
-            rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
-                                        [np.sin(rotation_angle),  np.cos(rotation_angle)]])
-            state[:2] = rotation_matrix @ state[:2]
-
-            u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
-            return u
+            return _curvy_spun(lds, state, rotation_angle, stim_magnitude)
 
     elif u_function == NestDynamicsUFunction.curvy_alld_resp:
         def u_given_stim(lds, state, i, rng):
@@ -246,8 +241,12 @@ def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude
                 u[:] = stim_magnitude * state[0] / np.linalg.norm(state[:2]) / np.sqrt(lds.B.shape[0])
 
             return u
+    elif u_function == NestDynamicsUFunction._curvy_flipped:
+        def u_given_stim(lds, state, i, rng):
+            return _curvy_spun(lds, state, np.pi, stim_magnitude)
+
     else:
-        raise ValueError()
+        raise ValueError(u_function)
     return u_given_stim
 
 

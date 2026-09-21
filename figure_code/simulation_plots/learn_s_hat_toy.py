@@ -9,7 +9,7 @@ from gould_2026.estimator import ArrayWithTime
 from gould_2026.prediction.kalman_filter import StreamingKalmanFilter
 from gould_2026.stim_regressor import StimRegressor
 from gould_2026.regression import KernelRegressor
-from gould_2026.datasets import LDS
+from gould_2026.datasets import LDS, NestDynamicsUFunction, get_nest_u_to_s_given_stim
 from gould_2026.utils import rotation_matrix
 import tqdm.auto as tqdm
 
@@ -17,11 +17,13 @@ standard_kinds_of_sr = ['learning from stim', 'ignoring stim samples', 'unaware 
 time_slices = ('post-stim', 'non-stim', 'all')
 space_slices = ('stim-d', 'non-stim-d', 'all')
 
-n_rotations = 50
+n_rotations = 60
 noise_variance = 0.05
 stims_per_rotation = 2
 stim_magnitude = 10
 radius = 10
+transition_time = 30
+transitions_per_rotation = 30 + 1 / np.pi
 
 class StimRegressorWithExtraLogging(StimRegressor):
     def __init__(self, *args, **kwargs):
@@ -34,12 +36,13 @@ class StimRegressorWithExtraLogging(StimRegressor):
                 key = 's_hat_error'
                 if key not in self.log:
                     self.log[key] = []
-                err = ArrayWithTime.from_transformed_data(np.squeeze(self.s_hat_error_function(self)), data)
+                err = self.s_hat_error_function(self, data.t)
                 self.log[key].append(err)
 
     def step(self, data, stream=0, return_output_stream=False):
         self.pre_log(data, stream)
         return super().step(data, stream=stream, return_output_stream=return_output_stream)
+
 
 def make_slices_tensor(sr):
     error = sr.log['pred_error']
@@ -82,7 +85,7 @@ def make_ideal_nostim_srs(rng, n_runs=1, streaming=False, show_tqdm=False):
     ideal_srs = []
     for _ in tqdm.trange(n_runs, disable=not show_tqdm):
         if not streaming:
-            X, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
+            X, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
             kf = StreamingKalmanFilter(steps_between_refits=float('inf'))
             kf.fit(Y, Y)  # Y, Y?
 
@@ -92,7 +95,7 @@ def make_ideal_nostim_srs(rng, n_runs=1, streaming=False, show_tqdm=False):
             ideal_srs.append(sr_ideal.finalize_log(stim))
         else:
             sr_ideal = StimRegressor(autoreg=StreamingKalmanFilter(), log_level=2, check_dt=True)
-            _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance)
+            _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=0, rng=rng, u_function='curvy', noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
             sr_ideal.offline_run_on([(Y, 'X'), (stim, 'stim')], convinient_return=False, show_tqdm=False)
             ideal_srs.append(sr_ideal.finalize_log(stim))
 
@@ -108,7 +111,7 @@ def true_S(point):
 def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
     previous_Ys = []
     for _ in range(n_runs):
-        _, Y, stim = LDS.run_nest_dynamical_system(n_rotations,radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance)
+        _, Y, stim = LDS.run_nest_dynamical_system(n_rotations,radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
         Y, _ = ArrayWithTime.align_indices(Y, stim.slice(np.squeeze(stim) == 1), complement=True) # filters for non-stim points
         previous_Ys.append(Y)
 
@@ -117,17 +120,28 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
     test_indices = rng.choice(test_times.size, replace=False, size=n_points)
     test_points, test_times = test_points[test_indices], test_times[test_indices]
 
-    def s_hat_error_function(self:StimRegressor):
-        s_hat_errors = []
-        for point, t in zip(test_points, test_times):
-            e = self.stim_reg.predict([point, np.array([1]), t]) - true_S(point)
-            s_hat_errors.append(e)
-        return s_hat_errors
+    true_ss_to_test = NestDynamicsUFunction
+    true_ss_to_test = {k: get_nest_u_to_s_given_stim(k, stim_magnitude=stim_magnitude, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation) for k in true_ss_to_test}
+    _lds = LDS.nest_lds(transitions_per_rotation=transitions_per_rotation, rng=rng, noise=noise_variance)
+
+    def s_hat_error_function(self:StimRegressor, current_t):
+        ret = {}
+        for key, sub_true_s in true_ss_to_test.items():
+            s_hat_errors = []
+            for point, t in zip(test_points, test_times):
+                e = self.stim_reg.predict([point, np.array([1]), t]) - sub_true_s(state=point, i=t*transitions_per_rotation, rng=rng, lds=_lds)
+                s_hat_errors.append(e)
+            ret[key] = ArrayWithTime(np.squeeze(s_hat_errors), current_t)
+
+        _l = list(ret.values())
+        assert not all([np.allclose(_l[0], _l[i]) for i in range(len(_l))]) # fails
+
+        return ret
 
     return s_hat_error_function
 
-def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations, transition_time=30):
-    _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time)
+def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations):
+    _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
 
     sr1 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True)
     sr2 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True, attempt_correction=False)
