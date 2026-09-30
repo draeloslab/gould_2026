@@ -140,7 +140,7 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
 
     return s_hat_error_function
 
-def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations):
+def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations, transition_time=transition_time):
     _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
 
     sr1 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True)
