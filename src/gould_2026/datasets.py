@@ -189,6 +189,8 @@ class NestDynamicsUFunction(str, Enum):
     curvy_flips = 'curvy_flips'
     curvy_spins = 'curvy_spins'
     curvy_alld_resp = 'curvy_alld_resp'
+    baffled = 'baffled'
+    baffled_spins = 'baffled_spins'
     # 'curvy_more_noisy'
     # 'curvy_flip_from start'
 
@@ -201,6 +203,19 @@ def _curvy_spun(lds, state,rotation_angle, stim_magnitude):
     state[:2] = rotation_matrix @ state[:2]
 
     u[2] = stim_magnitude * state[0] / np.linalg.norm(state[:2])
+    return u
+
+def _baffled_spun(lds, state, rotation_angle, stim_magnitude):
+    u = np.zeros(lds.B.shape[0])
+    state = np.array(state)
+    rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                [np.sin(rotation_angle),  np.cos(rotation_angle)]])
+    state[:2] = rotation_matrix @ state[:2]
+
+    theta = np.arctan2(state[1], state[0])
+    r = np.linalg.norm(state[:2])
+
+    u[2] = stim_magnitude * np.cos(theta*3) * (1-np.exp(-(r/2)**2))
     return u
 
 def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude, transition_time, transitions_per_rotation) -> Callable[[LDS, np.ndarray, int, np.random.Generator], np.ndarray]:
@@ -244,6 +259,20 @@ def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude
     elif u_function == NestDynamicsUFunction._curvy_flipped:
         def u_given_stim(lds, state, i, rng):
             return _curvy_spun(lds, state, np.pi, stim_magnitude)
+
+    elif u_function == NestDynamicsUFunction.baffled:
+        def u_given_stim(lds, state, i, rng):
+            return _baffled_spun(lds, state, 0, stim_magnitude)
+
+    elif u_function == NestDynamicsUFunction.baffled_spins:
+        def u_given_stim(lds, state, i, rng):
+            transition = transition_time * transitions_per_rotation
+            if i <= transition:
+                rotation_angle = 0
+            else:
+                rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
+
+            return _baffled_spun(lds, state, rotation_angle, stim_magnitude)
 
     else:
         raise ValueError(u_function)

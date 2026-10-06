@@ -13,7 +13,7 @@ all: $(TARGETS)
 COMMAND := python
 PAPERMILL_COMMAND := python -m papermill
 
-SIM_N_RUNS := 25
+SIM_N_RUNS := 2
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -111,7 +111,7 @@ output/starburst_sparse_constrained.svg:
 # fig:toy
 output/learn_s_hat_toy_1step_curvy.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy' -p n_runs 500  -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'curvy' -p n_runs 25  -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 output/learn_s_hat_toy_1step_spin.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
@@ -119,7 +119,7 @@ output/learn_s_hat_toy_1step_spin.svg:
 
 output/learn_s_hat_toy_1step_flip.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy_flips' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'curvy_flips' -p n_runs 25 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 #output/learn_s_hat_toy_1step_3d.svg:
 #	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
@@ -127,16 +127,50 @@ output/learn_s_hat_toy_1step_flip.svg:
 
 stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
 
-output/learn_toy_manifold.svg:
+output/learn_toy_manifold_baffled.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 	$(PAPERMILL_COMMAND) \
-		-p output_1_learn_toy_manifold output/learn_toy_manifold.svg \
-		-p output_2_stat_text output/learn_toy_manifold.txt \
+		-p u_function baffled \
+		-p output_1_learn_toy_manifold output/learn_toy_manifold_baffled.svg \
+		-p output_2_stat_text output/learn_toy_manifold_baffled.txt \
+		-p output_3_true_surface output/learn_toy_manifold_baffled_true_surface.svg \
+		-p output_4_true_heatmap output/learn_toy_manifold_baffled_true_heatmap.svg \
+		-p output_5_learned_surface output/learn_toy_manifold_baffled_learned_surface.svg \
+		-p output_6_learned_heatmap output/learn_toy_manifold_baffled_learned_heatmap.svg \
+		-p output_7_learned_heatmap_with_points output/learn_toy_manifold_baffled_learned_heatmap_with_points.svg \
+	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
+
+output/learn_toy_manifold_baffled_spins.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p u_function baffled_spins \
+		-p output_1_learn_toy_manifold output/learn_toy_manifold_baffled_spins.svg \
+		-p output_2_stat_text output/learn_toy_manifold_baffled_spins.txt \
+		-p output_3_true_surface output/learn_toy_manifold_baffled_spins_true_surface.svg \
+		-p output_4_true_heatmap output/learn_toy_manifold_baffled_spins_true_heatmap.svg \
+		-p output_5_learned_surface output/learn_toy_manifold_baffled_spins_learned_surface.svg \
+		-p output_6_learned_heatmap output/learn_toy_manifold_baffled_spins_learned_heatmap.svg \
+		-p output_7_learned_heatmap_with_points output/learn_toy_manifold_baffled_spins_learned_heatmap_with_points.svg \
 	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
 
 
-output/show_toy_dataset_curvy.svg:
-	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@ --plot-type curvy
+output/show_toy_dataset_baffled.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p plot_type baffled \
+		-p output_1_wire_trace output/show_toy_dataset_baffled.svg \
+		-p output_2_surface output/show_toy_dataset_baffled_surface.svg \
+		-p output_3_heatmap output/show_toy_dataset_baffled_heatmap.svg \
+	figure_code/simulation_plots/show_toy_dataset.ipynb /tmp/output.ipynb
+
+output/show_toy_dataset_baffled_spins.svg:
+	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
+	$(PAPERMILL_COMMAND) \
+		-p plot_type baffled_spins \
+		-p output_1_wire_trace output/show_toy_dataset_baffled_spins.svg \
+		-p output_2_surface output/show_toy_dataset_baffled_spins_surface.svg \
+		-p output_3_heatmap output/show_toy_dataset_baffled_spins_heatmap.svg \
+	figure_code/simulation_plots/show_toy_dataset.ipynb /tmp/output.ipynb
 
 output/show_toy_dataset_curvy_flips.svg:
 	$(COMMAND) figure_code/simulation_plots/show_toy_dataset.py --output $@ --plot-type curvy_flips
@@ -164,8 +198,6 @@ output/draelos25_1step.svg:
 	-p output1 output/draelos25_1step.svg \
 	-p output2 output/draelos25_stim_locations.svg \
 	-p output3 output/draelos25_low_and_low_d_response.svg \
-	-p output4 output/draelos25_behavior.svg \
-	-p output5 output/draelos25_behavior_stim_locations.svg \
 	-p output6 output/draelos25_1step_stripplot.svg \
 	-p output7_response_pairwise_plot output/draelos25_response_pairwise.svg \
 	-p output8_quiver_plot output/draelos25_quiver_plot.svg \

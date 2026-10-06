@@ -120,7 +120,7 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
     test_indices = rng.choice(test_times.size, replace=False, size=n_points)
     test_points, test_times = test_points[test_indices], test_times[test_indices]
 
-    true_ss_to_test = NestDynamicsUFunction
+    true_ss_to_test = [NestDynamicsUFunction.baffled, NestDynamicsUFunction.baffled_spins]
     true_ss_to_test = {k: get_nest_u_to_s_given_stim(k, stim_magnitude=stim_magnitude, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation) for k in true_ss_to_test}
     _lds = LDS.nest_lds(transitions_per_rotation=transitions_per_rotation, rng=rng, noise=noise_variance)
 
@@ -143,9 +143,9 @@ def make_s_hat_error_function(rng, n_runs=10, n_points=200, u_function='curvy'):
 def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_rotations=n_rotations, transition_time=transition_time):
     _, Y, stim = LDS.run_nest_dynamical_system(n_rotations, radius=radius, stims_per_rotation=stims_per_rotation, stim_magnitude=stim_magnitude, rng=rng, u_function=u_function, noise=noise_variance, transition_time=transition_time, transitions_per_rotation=transitions_per_rotation)
 
-    sr1 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True)
-    sr2 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True, attempt_correction=False)
-    sr3 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(**(dict(length_scales=[1.12201845e-02, 1.12201845e-02, 1.12201845e-10], reweight_every=np.inf) if add_s_hat_error_function else dict())), log_level=2, check_dt=True, attempt_correction=False, heed_stimuli=False)
+    sr1 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(), log_level=2, check_dt=True)
+    sr2 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(), log_level=2, check_dt=True, attempt_correction=False)
+    sr3 = StimRegressorWithExtraLogging(autoreg=StreamingKalmanFilter(), stim_reg=KernelRegressor(), log_level=2, check_dt=True, attempt_correction=False, heed_stimuli=False)
 
     if add_s_hat_error_function:
         sr3.stim_reg.observe([np.zeros(3), np.array([0]), np.array([0])], np.zeros(3))  # setting a zero prior for the manifold comparison
@@ -158,6 +158,9 @@ def single_make_srs(rng, u_function='curvy', add_s_hat_error_function=False, n_r
     for sr in pre_srs.values():
         sr.offline_run_on([(Y, 'X'), (stim, 'stim')], convinient_return=False, show_tqdm=False)
         sr.finalize_log(stim)
+
+    sr1.log['Y'] = Y
+    sr1.log['stim'] = stim
 
     return pre_srs
 
