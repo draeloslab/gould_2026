@@ -161,8 +161,12 @@ class LDS:
         N = int(rotations * transitions_per_rotation)
         t = np.linspace(0, N / transitions_per_rotation, N)
 
-        stim = t * 0
-        stim[stim_rng.choice(stim.shape[0], size=int(stims_per_rotation * N / transitions_per_rotation), replace=False)] = 1
+        random_values = rng.random(size=(np.ceil(rotations).astype(int), np.ceil(transitions_per_rotation).astype(int)))
+        chosen_indices = np.argsort(random_values, axis=1)[:,:stims_per_rotation]
+        stim = np.zeros_like(random_values)
+        stim[np.arange(random_values.shape[0])[:, None], chosen_indices] = 1
+        stim = stim.flatten()
+        stim = stim[:len(t)]
 
         u_function = _make_nest_u_function(u_function, stim_magnitude, stim, transition_time, transitions_per_rotation)
 
