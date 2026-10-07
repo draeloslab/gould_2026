@@ -51,7 +51,7 @@ class VanillaOnlineRegressor:
         self.n_observed += 1
 
     def observe(self, x, y):
-        if numpy.any(~numpy.isfinite(x)) or numpy.any(~numpy.isfinite(y)):
+        if numpy.any([~numpy.isfinite(xx) for xx in x]) or numpy.any(~numpy.isfinite(y)):
             return
 
         # x and y should be vectors
