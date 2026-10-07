@@ -13,7 +13,7 @@ all: $(TARGETS)
 COMMAND := python
 PAPERMILL_COMMAND := python -m papermill
 
-SIM_N_RUNS := 2
+SIM_N_RUNS := 1
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -188,6 +188,7 @@ output/daie21_1step.svg:
 	-p output3_response_pairwise_plot output/daie21_response_pairwise.svg \
 	-p output4_quiver_plot output/daie21_quiver_plot.svg \
 	-p output5_mantel_hist output/daie21_mantel_hist.svg \
+	-p output6_inferred_stim_response_map output/daie21_inferred_stim_response_map.png \
 	figure_code/behavior/daie21.ipynb /tmp/output.ipynb
 
 
@@ -202,7 +203,7 @@ output/draelos25_1step.svg:
 	-p output7_response_pairwise_plot output/draelos25_response_pairwise.svg \
 	-p output8_quiver_plot output/draelos25_quiver_plot.svg \
 	-p output9_mantel_hist output/draelos25_mantel_hist.svg \
-	-p output10_inferred_stim_response_map output/draelos25_inferred_stim_response_map.svg \
+	-p output10_inferred_stim_response_map output/draelos25_inferred_stim_response_map.png \
 	-p output11_individual_stims output/draelos25_individual_stims.svg \
 	 figure_code/behavior/draelos25.ipynb /tmp/output.ipynb
 
