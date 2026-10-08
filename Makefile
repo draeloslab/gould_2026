@@ -109,23 +109,23 @@ output/starburst_sparse_constrained.svg:
 
 
 # fig:toy
-output/learn_s_hat_toy_1step_curvy.svg:
+output/learn_s_hat_toy_1step_baffled.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy' -p n_runs 25  -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'baffled' -p n_runs 50  -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 output/learn_s_hat_toy_1step_spin.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy_spins' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'baffled_spins' -p n_runs 50 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 output/learn_s_hat_toy_1step_flip.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
-	$(PAPERMILL_COMMAND) -p u_function 'curvy_flips' -p n_runs 25 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
+	$(PAPERMILL_COMMAND) -p u_function 'baffled_flips' -p n_runs 50 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
 #output/learn_s_hat_toy_1step_3d.svg:
 #	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 #	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_curvy.svg
+stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_baffled.svg
 
 output/learn_toy_manifold_baffled.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
@@ -138,6 +138,7 @@ output/learn_toy_manifold_baffled.svg:
 		-p output_5_learned_surface output/learn_toy_manifold_baffled_learned_surface.svg \
 		-p output_6_learned_heatmap output/learn_toy_manifold_baffled_learned_heatmap.svg \
 		-p output_7_learned_heatmap_with_points output/learn_toy_manifold_baffled_learned_heatmap_with_points.svg \
+		-p output_8_learned_heatmap_over_time output/learn_toy_manifold_baffled_learned_heatmap_over_time.svg \
 	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
 
 output/learn_toy_manifold_baffled_spins.svg:
@@ -151,6 +152,7 @@ output/learn_toy_manifold_baffled_spins.svg:
 		-p output_5_learned_surface output/learn_toy_manifold_baffled_spins_learned_surface.svg \
 		-p output_6_learned_heatmap output/learn_toy_manifold_baffled_spins_learned_heatmap.svg \
 		-p output_7_learned_heatmap_with_points output/learn_toy_manifold_baffled_spins_learned_heatmap_with_points.svg \
+		-p output_8_learned_heatmap_over_time output/learn_toy_manifold_baffled_spins_learned_heatmap_over_time.svg \
 	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
 
 

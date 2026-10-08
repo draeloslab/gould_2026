@@ -195,6 +195,7 @@ class NestDynamicsUFunction(str, Enum):
     curvy_alld_resp = 'curvy_alld_resp'
     baffled = 'baffled'
     baffled_spins = 'baffled_spins'
+    baffled_flips = 'baffled_flips'
     # 'curvy_more_noisy'
     # 'curvy_flip_from start'
 
@@ -275,6 +276,16 @@ def get_nest_u_to_s_given_stim(u_function: NestDynamicsUFunction, stim_magnitude
                 rotation_angle = 0
             else:
                 rotation_angle = (i-transition) * 2*np.pi / (transition_time * transitions_per_rotation)
+
+            return _baffled_spun(lds, state, rotation_angle, stim_magnitude)
+
+    elif u_function == NestDynamicsUFunction.baffled_flips:
+        def u_given_stim(lds, state, i, rng):
+            transition = transition_time * transitions_per_rotation
+            if i <= transition:
+                rotation_angle = 0
+            else:
+                rotation_angle = np.pi
 
             return _baffled_spun(lds, state, rotation_angle, stim_magnitude)
 
