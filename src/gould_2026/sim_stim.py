@@ -504,14 +504,14 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
                         max_l0_norm=stim_designer.max_l0_norm
                     )
                     designed_stim = sim_stim_design_stim(stim_designer, sr, config.stim_magnitude, desired_stim, equivalent_projection_matrix, current_t=data.t, u_to_s_model_type=config.u_to_s_model_type, n_random_init=config.n_random_init, init_optimization_method=config.init_optimization_method)
-                    instantaneous_stim = designed_stim * config.stim_magnitude
                 else:
-                    instantaneous_stim = np.zeros(input_array.shape[1])
+                    designed_stim = np.zeros(input_array.shape[1])
+
                 timing_log.stim_design[-1] = time.perf_counter() - timing_log.stim_design[-1]
 
-                stims.append(ArrayWithTime(instantaneous_stim, data.t))
+                stims.append(ArrayWithTime(designed_stim, data.t))
 
-                true_stim_result = sim_stim_calculator.true_stim_result(instantaneous_stim, equivalent_projection_matrix)
+                true_stim_result = sim_stim_calculator.true_stim_result(designed_stim, equivalent_projection_matrix) * config.stim_magnitude
 
                 sim_stim_adder.register_stim(true_stim_result)
 
@@ -536,7 +536,7 @@ def run_sim_stim(input_array, rng, config = SimStimConfig(), behavioral_data = A
 
                 timing_log.stim_reg_updated.append(sr.stim_reg.n_observed)
                 timing_log.sr_update.append(time.perf_counter())
-                sr.step(ArrayWithTime(true_stim_result, data.t), stream='stim')
+                sr.step(ArrayWithTime(designed_stim, data.t), stream='stim')
                 stims_before_obs = set([stim.t for stim in sr.last_seen_stims])
                 data = sr.step(data, stream='X')
                 resolved_stim_ts = stims_before_obs - set([stim.t for stim in sr.last_seen_stims])
