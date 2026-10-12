@@ -13,7 +13,7 @@ all: $(TARGETS)
 COMMAND := python
 PAPERMILL_COMMAND := python -m papermill
 
-SIM_N_RUNS := 1
+SIM_N_RUNS := 50
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -107,6 +107,7 @@ output/starburst_sparse_constrained.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 	$(PAPERMILL_COMMAND) -p output $@ -p condition sparse_constrained figure_code/simulation_plots/starburst.ipynb /tmp/output.ipynb
 
+starburst_panels: output/starburst_constrained.svg output/starburst_unconstrained.svg output/starburst_positive_constrained.svg output/starburst_sparse_constrained.svg
 
 # fig:toy
 output/learn_s_hat_toy_1step_baffled.svg:
@@ -125,7 +126,7 @@ output/learn_s_hat_toy_1step_flip.svg:
 #	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
 #	$(PAPERMILL_COMMAND) -p u_function 'curvy_alld_resp' -p n_runs 500 -p output $@ figure_code/simulation_plots/learn_s_hat_toy_1step_spin.ipynb /tmp/output.ipynb
 
-stimreg_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_baffled.svg
+cache_dependent_panels: output/learn_s_hat_toy_1step_flip.svg output/learn_s_hat_toy_1step_spin.svg output/learn_s_hat_toy_1step_baffled.svg output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg
 
 output/learn_toy_manifold_baffled.svg:
 	export PYTHONPATH=PYTHONPATH:$(CURDIR)/figure_code/simulation_plots; \
