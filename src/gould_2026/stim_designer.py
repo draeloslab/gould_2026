@@ -22,7 +22,7 @@ def _linear_u_to_s(u, A, stim_magnitude):
     return stim_magnitude * (A @ u)
 
 def _kernel_reg_u_to_s(u, stim_magnitude, f, pred, current_t):
-    return f([pred, u, current_t]) * stim_magnitude
+    return f([pred, u, current_t])
 
 class OptimizationMethod(str, Enum):
     LBFGS = 'lbfgs'
