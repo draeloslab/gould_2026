@@ -31,7 +31,7 @@ for axis in ['x', 'y']:
     rcParams[f'{axis}tick.major.width'] = AXES_LINEWIDTH
     rcParams[f'{axis}tick.major.size'] = EM / 3
     rcParams[f'{axis}tick.major.pad'] = EM / 3
-    rcParams[f'{axis}tick.direction'] = 'in'
+    rcParams[f'{axis}tick.direction'] = 'out'
 
 
 matplotlib.rcParams['savefig.transparent'] = True
