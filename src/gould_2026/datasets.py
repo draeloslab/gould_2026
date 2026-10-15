@@ -777,6 +777,15 @@ class Naumann24uDataset:
 
         pose_class = self.BehaviorClassifier().offline_run_on(ArrayWithTime(tail_angle[:,None,None], tail_times))
 
+        target_neurons = np.unique(optical_stimulation_df.target_neuron)
+
+        def target_neuron_to_vector(tn):
+            v = target_neurons * 0
+            v[target_neurons == tn] = 1
+            return v
+
+        optical_stimulation_df['stim_vector'] = optical_stimulation_df['target_neuron'].apply(target_neuron_to_vector)
+
         return C, optical_stimulation_df, neuron_df, visual_stimuli_df, tail_position, frame_times, tail_times, tail_angle, pose_class, background_image, neuron_locations
 
     def acquire(self, sub_dataset_identifier):
