@@ -3,6 +3,8 @@ import matplotlib
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
 from contextlib import contextmanager
+import numpy as np
+import matplotlib.colors as mcolors
 
 LINEWIDTH = 0.5
 AXES_LINEWIDTH = 0.25
@@ -93,6 +95,18 @@ class Palette(str, Enum):
     kalman = black
     bubblewrap = black
     vjf = black
+
+    @staticmethod
+    def draelos_25_cmap():
+        sub_min = 0.0
+        sub_max = 114 / 202
+        orig_cmap = plt.colormaps["cool_r"]
+        extracted_colors = orig_cmap(np.linspace(sub_min, sub_max, 256))
+        sub_cmap = mcolors.LinearSegmentedColormap.from_list("cool_subset", extracted_colors)
+        new_norm = mcolors.Normalize(vmin=-32, vmax=82)
+        cmap_f = lambda x: sub_cmap(new_norm(x))
+
+        return sub_cmap, new_norm, cmap_f
 
 def make_violinplot_inner_kws():
     _vh = .5
