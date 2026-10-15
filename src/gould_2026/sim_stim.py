@@ -35,14 +35,14 @@ class StimResponseModelType(str, Enum):
     KERNEL_REGRESSED = 'kernel_regressed'
 
 class StimDirectionType(str, Enum):
-    FIRST = 'first'
-    FIRST2 = 'first2'
-    COL = 'col'
-    RANDOM = 'random'
-    RANDOM_POSITIVE = 'random+'
-    RANDOM_FEASIBLE = 'random_feasible'
-    ONES = 'ones'
-    NEG_ONES = '-ones'
+    FIRST = 'first' # first latent
+    FIRST2 = 'first2' # first two latents
+    COL = 'col' # random column
+    RANDOM = 'random' # random direction in latent space
+    RANDOM_POSITIVE = 'random+' # random direction in latent space, but only positive in high-d space
+    RANDOM_FEASIBLE = 'random_feasible' # random direction in latent space, but only positive in high-d space and with l0 norm <= max_l0_norm
+    ONES = 'ones' # all ones in high-d space
+    NEG_ONES = '-ones' # all negative ones in high-d space
 
 
 
