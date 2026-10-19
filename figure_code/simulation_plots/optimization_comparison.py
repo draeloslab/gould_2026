@@ -29,6 +29,27 @@ def simulations_to_l_df(simulations: dict[str, list[SimulationResult]]):
                 records.append(dict(sr_key=k, sr_i=sr_i, l_i=l_i, l=l))
     return pandas.DataFrame(records)
 
+def l_df_add_columns(l_df, open_closed_column=True, nan_missing_s_hat=True):
+    if open_closed_column:
+        l_df[['open_closed', 'true_s']] = l_df['sr_key'].str.split(' ', expand=True)
+    l_df['angle(s,v)'] = l_df.l.apply(lambda l: angle_between(l['s'], l['v']))
+    l_df['v'] = l_df.l.apply(lambda x: x['v'])
+    l_df['u'] = l_df.l.apply(lambda x: x['u'])
+    l_df['high_d_v'] = l_df.apply(lambda x: x['l']['equiv_proj_mat'] @ x['v'], axis=1)
+    l_df['ones_theta'] = l_df['l'].apply(lambda l: angle_between(l['u'], l['u'] * 0 + 1, radians=False))
+    l_df['t'] = l_df['l'].apply(lambda l: l['time_of_stim'])
+    l_df['Q'] = l_df.l.apply(lambda x: x['equiv_proj_mat'])
+
+    if nan_missing_s_hat:
+        l_df['observed_s_hat'] = l_df.l.apply(lambda x: x['observed_s_hat'] if 'observed_s_hat' in x else np.nan * x['v'])
+
+    l_df['r'] = l_df['observed_s_hat'].apply(np.linalg.norm)
+
+    l_df['theta'] = l_df.apply(lambda r: angle_between(r['v'], r['observed_s_hat'], radians=False, subspace=False), axis=1)
+    l_df['theta_space'] = l_df.apply(lambda r: angle_between(r['v'], r['observed_s_hat'], radians=False, subspace=True), axis=1)
+    l_df['angle(s_obs,v)'] = l_df['theta']
+
+    return l_df
 
 
 from gould_2026.save_to_cache import save_to_cache

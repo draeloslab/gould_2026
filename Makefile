@@ -13,7 +13,7 @@ all: $(TARGETS)
 COMMAND := python
 PAPERMILL_COMMAND := python -m papermill
 
-SIM_N_RUNS := 5
+SIM_N_RUNS := 50
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -210,6 +210,7 @@ output/draelos25_1step.svg:
 	-p output9_mantel_hist output/draelos25_mantel_hist.svg \
 	-p output10_inferred_stim_response_map output/draelos25_inferred_stim_response_map.png \
 	-p output11_individual_stims output/draelos25_individual_stims.svg \
+	-p output12_manifold_colorbar output/draelos25_manifold_colorbar.svg \
 	 figure_code/behavior/draelos25.ipynb /tmp/output.ipynb
 
 # fig:closed
@@ -219,10 +220,11 @@ output/open_vs_closed_by_dimred_kf_prosvd_odoherty21.svg:
 	-p output $@ \
 	-p output2_decreasing_error output/open_vs_closed_by_dimred_kf_prosvd_odoherty21_reducing_error.svg \
 	-p output3_open_vs_closed_violins output/open_vs_closed_by_dimred_kf_prosvd_odoherty21_open_vs_closed_violins.svg \
+	-p output4_open_vs_rand output/open_vs_closed_by_dimred_kf_prosvd_odoherty21_open_vs_rand.svg \
 	-p type_of_dim_red prosvd \
 	-p type_of_autoreg kf \
 	-p dataset odoherty21 \
-	-p optimization_method lbfgs\
+	-p optimization_method 'lbfgs' \
 	-p n_runs $(SIM_N_RUNS) \
 	figure_code/simulation_plots/open_vs_closed.ipynb /tmp/output.ipynb
 
@@ -275,10 +277,6 @@ output/ss_1step_bw.png:
 output/ss_1step_vjf.png:
 	$(COMMAND) figure_code/simulation_plots/learn_s_hat_ss.py --output $@ --type-of-plot 1-step-prediction --type-of-predictor vjf
 
-output/optim_col_vs_rand.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_col_vs_rand --n-runs $(SIM_N_RUNS)
-output/optim_open_vs_closed_toy.svg:
-	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed_toy --type-of-dim-red prosvd --n-runs $(SIM_N_RUNS)
 
 # output/open_vs_closed_by_dimred_kf_prosvd_zong22.svg:
 # 	$(COMMAND) figure_code/simulation_plots/optimization_comparison.py --output $@ --type-of-plot optim_open_vs_closed --type-of-dim-red prosvd --type-of-autoreg kf --dataset zong22 --n-runs $(SIM_N_RUNS)
