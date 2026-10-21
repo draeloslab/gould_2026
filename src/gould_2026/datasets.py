@@ -566,7 +566,8 @@ class Zong22Dataset:
 
 class Daie21Dataset:
     dataset_base_path = DATA_BASE_PATH / 'daie21'
-    def __init__(self):
+    def __init__(self, shuffle_random_state=0):
+        self.shuffle_random_state = shuffle_random_state
         self.neural_data, self.stimuli = self.acquire()
 
     def acquire(self):
@@ -597,8 +598,8 @@ class Daie21Dataset:
         t = np.arange(n_timepoints) * dt
 
         df = pd.DataFrame(rows)
-        nan_rows = df[df['stim_start'].isna()].sample(frac=1).reset_index(drop=True)
-        non_nan_rows = df[df['stim_start'].notna()].sample(frac=1).reset_index(drop=True)
+        nan_rows = df[df['stim_start'].isna()].sample(frac=1, random_state=self.shuffle_random_state).reset_index(drop=True)
+        non_nan_rows = df[df['stim_start'].notna()].sample(frac=1, random_state=self.shuffle_random_state).reset_index(drop=True)
         df = pd.concat([nan_rows, non_nan_rows], ignore_index=True)
 
         def concat_rows(df):
