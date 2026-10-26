@@ -10,10 +10,10 @@ all: $(TARGETS)
 
 # COMMAND := /home/jgould/miniconda3/envs/gould_2026/bin/coverage run --parallel-mode
 # PAPERMILL_COMMAND := /home/jgould/miniconda3/envs/gould_2026/bin/coverage run --parallel-mode -m papermill
-COMMAND := python
-PAPERMILL_COMMAND := python -m papermill
+COMMAND := timeout 60s python
+PAPERMILL_COMMAND := timeout 60s python -m papermill
 
-SIM_N_RUNS := 50
+SIM_N_RUNS := 1
 
 export JAX_PLATFORMS=cpu
 export JAX_ENABLE_X64=True
@@ -136,11 +136,13 @@ output/learn_toy_manifold_baffled.svg:
 		-p output_2_stat_text output/learn_toy_manifold_baffled.txt \
 		-p output_3_true_surface output/learn_toy_manifold_baffled_true_surface.svg \
 		-p output_4_true_heatmap output/learn_toy_manifold_baffled_true_heatmap.svg \
+		-p output_4_true_heatmap_colorbar output/learn_toy_manifold_baffled_true_heatmap_colorbar.svg \
 		-p output_5_learned_surface output/learn_toy_manifold_baffled_learned_surface.svg \
 		-p output_6_learned_heatmap output/learn_toy_manifold_baffled_learned_heatmap.svg \
 		-p output_7_learned_heatmap_with_points output/learn_toy_manifold_baffled_learned_heatmap_with_points.svg \
 		-p output_8_learned_heatmap_over_time output/learn_toy_manifold_baffled_learned_heatmap_over_time.svg \
 		-p output_9_stripplot output/learn_toy_manifold_baffled_learned_stripplot.svg \
+		-p output_10_wire_trace output/learn_toy_manifold_baffled_learned_wire_trace.svg \
 	figure_code/simulation_plots/learn_toy_manifold.ipynb /tmp/output.ipynb
 
 output/learn_toy_manifold_baffled_spins.svg:

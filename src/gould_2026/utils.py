@@ -51,3 +51,34 @@ def angle_between(v1, v2, radians=False, subspace=False):
 def rotation_matrix(theta):
     return np.array([[np.cos(theta), -np.sin(theta)],
               [np.sin(theta), np.cos(theta)]])
+
+def check_same(v, var_name='temp', overwrite=True):
+    """
+    >>> check_same(1) # doctest: +ELLIPSIS
+    temp: ...
+    >>> check_same(1)
+    temp: True
+    >>> check_same(2)
+    temp: False
+    """
+    try:
+        import torch
+        if isinstance(v, torch.Tensor):
+            v = v.detach().cpu().numpy()
+    except ImportError:
+        pass
+    s = f'/tmp/_{var_name}'
+    try:
+        old_v = np.load(f"{s}.npy")
+        assert old_v is not None # edge case I don't want to deal with
+    except FileNotFoundError:
+        old_v = None
+
+    if overwrite:
+        np.save(s, v)
+
+    if old_v is not None:
+        same = np.shape(v) == np.shape(old_v) and np.nanmax((v - old_v) ** 2) == 0
+        print(f'{var_name}: {same}')
+    else:
+        print(f'{var_name}: NEW')
